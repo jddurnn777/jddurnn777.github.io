@@ -28,10 +28,10 @@
       </div>
 
       <div class="callout">
-        <strong>This one's still open:</strong> I was assigned the Status LED design for our
+        <strong>This one's still open:</strong> I got assigned the Status LED design for our
         University Rover Challenge (URC) rover, and I'm mid-decision, not finished. This is how
-        I'm actually thinking through the tradeoffs right now — I'll update this post once the
-        team lands on one.
+        I'm actually thinking through the tradeoffs right now. I'll update this post once the team
+        lands on one.
       </div>
 
       <div class="pdf-embed">
@@ -48,77 +48,78 @@
         signals rover state by color: red for autonomous operation, blue for teleoperation, and a
         flashing green for successful arrival at a target. Competition events run in full
         daylight, and the required E-stop has to immediately cut power to every battery-driven
-        system on the rover — which matters for how I wire this, since whatever I build has to
-        actually go dark when the E-stop fires, not fail "on."
+        system on the rover, which matters for how I wire this. Whatever I build has to actually go
+        dark when the E-stop fires, not fail "on."
       </p>
       <p>
         The electrical context I'm designing into: our power distribution board's 12 V outputs
-        aren't regulated — they float with the battery, an 4S6P LiFePO<sub>4</sub> pack that runs
-        roughly 10–14.6 V depending on charge state. The controller is a Jetson Orin Nano, which
-        means 3.3 V logic (with some 5 V pins available). And the enclosure needs to survive dust,
-        rain, and rough desert conditions.
+        aren't regulated, they float with the battery, a 4S6P LiFePO<sub>4</sub> pack that runs
+        roughly 10–14.6 V depending on charge state. The controller is a Jetson Orin Nano, so
+        3.3 V logic, with some 5 V pins available. And the enclosure needs to survive dust, rain,
+        and rough desert conditions.
       </p>
 
       <h2>Why blue is the hard color</h2>
       <p>
-        I'm targeting two things: luminance (how bright the lit surface looks, aiming past 1500
-        nits, with 4500 cd/m² as the outdoor-visibility reference point) and intensity per color
-        (targeting over 80 candela, based roughly on the U.S. minimum brightness standard for a car
-        brake light). Candela is the unit that actually accounts for human eye sensitivity by
-        color — and blue is the color our eyes are least sensitive to, so it's consistently the
-        hardest of the three to hit a visibility target with, regardless of which hardware I pick.
+        I'm targeting two things: luminance, how bright the lit surface actually looks (aiming
+        past 1500 nits, with 4500 cd/m² as the outdoor-visibility reference point), and intensity
+        per color, targeting over 80 candela, based roughly on the U.S. minimum brightness
+        standard for a car brake light. Candela is the unit that actually accounts for human eye
+        sensitivity by color, and blue is the color our eyes are least sensitive to. So it's
+        consistently the hardest of the three to hit a visibility target with, no matter which
+        hardware I pick.
       </p>
 
       <h2>Option 1 — an addressable RGB matrix (WS2815)</h2>
       <p>
-        A 16×16 WS2815 panel is the cheapest and most software-flexible option (roughly
-        $125–145 including mounting), with the widest viewing angle (120°) and full software
-        control over color and pattern. The catch is that it needs the most supporting hardware: a
-        regulator, a level shifter, and precise firmware-side timing.
+        A 16×16 WS2815 panel is the cheapest and most software-flexible option, roughly $125–145
+        including mounting, with the widest viewing angle (120°) and full software control over
+        color and pattern. The catch is it needs the most supporting hardware: a regulator, a
+        level shifter, and precise firmware-side timing.
       </p>
       <p>
         The level shifter isn't optional. The WS2815 reads its data line internally at 5 V logic,
-        and its datasheet sets the high threshold at 70% of that — 3.5 V. The Jetson's SPI output
-        is 3.3 V, which is 0.2 V short of that threshold. It might work by luck; I'd rather not bet
-        a competition run on luck, so a 74AHCT125 shifter bumps the signal to a clean 5 V before it
+        and its datasheet sets the high threshold at 70% of that, 3.5 V. The Jetson's SPI output is
+        3.3 V, which is 0.2 V short of that threshold. It might work by luck. I'd rather not bet a
+        competition run on luck, so a 74AHCT125 shifter bumps the signal to a clean 5 V before it
         reaches the panel.
       </p>
       <p>
         Since the Jetson can't reliably toggle a pin with sub-microsecond precision the way the
         WS2815 protocol needs, the SPI hardware generates the timing instead: each LED bit gets
-        encoded as 3 SPI bits (short pulse = 0, long pulse = 1), sent at 2.4 MHz. It's a clever
-        workaround, but it's also exactly the kind of "precise timing required" tradeoff my TL;DR
-        keeps coming back to.
+        encoded as 3 SPI bits (short pulse = 0, long pulse = 1), sent at 2.4 MHz. Clever
+        workaround, but also exactly the kind of "precise timing required" tradeoff I keep coming
+        back to.
       </p>
       <p>
         Weather-wise, the panel and level shifter are only rated to 85°C, and back-of-envelope
         heating math puts the sealed enclosure close enough to that limit in direct desert sun that
-        a sunshade isn't optional for this option — it's load-bearing for the electronics surviving
+        a sunshade isn't optional for this option. It's load-bearing for the electronics surviving
         the day.
       </p>
       <p>
-        Against my targets: red and green clear the bar comfortably. Blue lands at roughly half the
-        luminance target without a sunshade — workable, but the option I'm least confident in for
-        blue specifically.
+        Against my targets: red and green clear the bar comfortably. Blue lands at roughly half
+        the luminance target without a sunshade. Workable, but the option I'm least confident in
+        for blue specifically.
       </p>
 
       <h2>Option 2 — high-power LED strings (Mean Well LDD-700H + Cree XP-E2)</h2>
       <p>
         This is the electrically simpler path: three Mean Well LDD-700H constant-current drivers,
         one per color, each driving a pair of Cree XP-E2 LEDs in series at a fixed 700 mA. No
-        regulator, no level shifter, no MOSFETs — the driver itself holds current constant across
+        regulator, no level shifter, no MOSFETs. The driver itself holds current constant across
         the pack's whole voltage swing, and each driver's DIM pin reads the Jetson's 3.3 V GPIO
         output directly.
       </p>
       <p>
         The tradeoffs are mechanical and behavioral rather than electrical. Each LED sits under a
-        narrow wide-spot lens, so the usable viewing cone is much tighter than the matrix's 120° —
-        someone off to the side sees meaningfully less light. And because the driver's DIM pin
-        turns the color <em>on</em> when left floating high, a loose control wire fails toward "on"
-        rather than "off," which is the opposite of what I'd want near an E-stop requirement.
+        narrow wide-spot lens, so the usable viewing cone is much tighter than the matrix's 120°.
+        Someone off to the side sees meaningfully less light. And because the driver's DIM pin
+        turns the color <em>on</em> when left floating high, a loose control wire fails toward
+        "on" rather than "off," which is the opposite of what I'd want near an E-stop requirement.
       </p>
       <p>
-        Against my targets, this is actually the strongest option numerically — all three colors
+        Against my targets, this is actually the strongest option numerically. All three colors
         clear both brightness targets, and blue is the brightest of all three options here, purely
         because a dedicated high-power LED beats spreading the same power across many small ones.
       </p>
@@ -127,21 +128,22 @@
       <p>
         The lowest-engineering-risk option: pre-built Whelen ION surface-mount lightheads, one per
         color, the same class of hardware used on real emergency vehicles. Wiring is about as
-        simple as it gets — power through a fuse, ground through a logic-level MOSFET switched by
-        a Jetson GPIO. No regulator or level shifter needed since these are designed to run
-        directly on a vehicle's 12 V system, which our pack's voltage range fits inside.
+        simple as it gets: power through a fuse, ground through a logic-level MOSFET switched by a
+        Jetson GPIO. No regulator or level shifter needed since these are built to run directly on
+        a vehicle's 12 V system, which our pack's voltage range fits inside.
       </p>
       <p>
-        The catch is cost — roughly five times either other option — and that Whelen doesn't
-        publish intensity or luminance numbers for these heads. They're certified to SAE J595, the
-        standard for emergency-vehicle warning lights, which is reassuring, but I can't check them
-        against my own numeric targets until I actually get photometric data from Whelen directly.
+        The catch is cost, roughly five times either other option, and that Whelen doesn't publish
+        intensity or luminance numbers for these heads. They're certified to
+        <a href="https://www.sae.org/standards/content/j595_202108/">SAE J595</a>, the standard
+        for emergency-vehicle warning lights, which is reassuring, but I can't check them against
+        my own numeric targets until I actually get photometric data from Whelen directly.
       </p>
 
       <h2>Where I'm leaning</h2>
       <p>
         Right now: Option 1, because it's the cheapest and most flexible, with Option 2 as an
-        active fallback rather than an afterthought — if the matrix's timing requirements turn out
+        active fallback rather than an afterthought. If the matrix's timing requirements turn out
         to be more fragile in practice than they look on paper, I want a simpler backup already
         scoped rather than starting from zero. Option 3 stays in reserve as the "spend more, worry
         less" option if we decide the risk on the other two isn't worth the savings.
@@ -151,6 +153,31 @@
         on numbers, and settle whether a sunshade gets built by our mechanical subteam before I
         commit to Option 1's blue-channel margin.
       </p>
+
+      <h2>References</h2>
+      <a class="paper-link" href="https://www.sae.org/standards/content/j595_202108/">
+        <span>SAE International. J595: Directional flashing optical warning devices for authorized emergency, maintenance, and service vehicles.</span>
+      </a>
+      <a class="paper-link" href="https://www.ecfr.gov/current/title-49/subtitle-B/chapter-V/part-571/subpart-B/section-571.108">
+        <span>49 CFR 571.108 — Standard No. 108; Lamps, reflective devices, and associated equipment (FMVSS 108).</span>
+        <span class="paper-cite">eCFR</span>
+      </a>
+      <a class="paper-link" href="https://www.nist.gov/pml/owm/si-units-luminous-intensity">
+        <span>SI units — luminous intensity (the candela).</span>
+        <span class="paper-cite">NIST</span>
+      </a>
+      <a class="paper-link" href="https://www.whelen.com/surface-mounted-lightheads/ion-series">
+        <span>ION Series — surface-mounted lightheads.</span>
+        <span class="paper-cite">Whelen Engineering</span>
+      </a>
+      <a class="paper-link" href="https://www.meanwell.com/Upload/PDF/LDD-H/LDD-H-SPEC.PDF">
+        <span>LDD-H series DC-DC constant current LED driver datasheet.</span>
+        <span class="paper-cite">Mean Well</span>
+      </a>
+      <a class="paper-link" href="https://downloads.cree-led.com/files/ds/x/XLamp-XPE2.pdf">
+        <span>XLamp XP-E2 LED datasheet.</span>
+        <span class="paper-cite">Cree LED</span>
+      </a>
 
       <div class="post-footer">
         Written by Jennifer Durnall. Questions or feedback? Reach me on

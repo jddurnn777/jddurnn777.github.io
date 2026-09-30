@@ -24,7 +24,7 @@
       <div class="post-header">
         <div class="post-date">EEL4810, Team Project</div>
         <h1>CNN vs. ResNet-18 vs. Vision Transformer on CIFAR-10</h1>
-        <div class="subtitle">Or: the project that taught me fine-tuning beats feature-freezing, and a corrupted download taught me to know when to cut losses.</div>
+        <div class="subtitle">Fine-tuning beats feature-freezing, and a corrupted download taught me when to cut my losses.</div>
       </div>
 
       <div class="callout">
@@ -47,8 +47,8 @@
       <h2>The question</h2>
       <p>
         Image classification on CIFAR-10 is a classic way to ask a very practical question: is it
-        better to train a small model from scratch, or to borrow features that a much bigger model
-        already learned on ImageNet? We tested four points along that spectrum — a CNN with zero
+        better to train a small model from scratch, or borrow features that a much bigger model
+        already learned on ImageNet? We tested four points along that spectrum: a CNN with zero
         pretraining, a frozen pretrained backbone, a fine-tuned pretrained backbone, and a Vision
         Transformer built entirely from scratch.
       </p>
@@ -58,12 +58,14 @@
         My starting point was a plain CNN in PyTorch — three conv blocks (32 → 64 → 128 channels,
         3×3 kernels, ReLU, max pooling after each), flattened into a small classifier head
         (Linear → 256 → ReLU → Dropout(0.3) → Linear → 10). Adam optimizer, cross-entropy loss, 15
-        epochs, an 80/20 train/validation split, fixed seed throughout for reproducibility.
+        epochs, an 80/20 train/validation split, fixed seed the whole way through so it's
+        reproducible.
       </p>
       <p>
-        The first run overfit — training accuracy kept climbing while validation accuracy
-        plateaued, a pretty textbook sign the model was memorizing rather than generalizing. Adding
-        random horizontal flips and random cropping (with padding) closed that gap noticeably.
+        The first run overfit. Training accuracy kept climbing while validation accuracy
+        plateaued, which is a pretty textbook sign the model was memorizing instead of
+        generalizing. Adding random horizontal flips and random cropping (with padding) closed
+        that gap noticeably.
       </p>
 
       <h2>Transfer learning, two ways</h2>
@@ -75,28 +77,28 @@
       </p>
       <p>
         Ido, Marcus, and I then unfroze the last residual block (<code>layer4</code>) and the
-        classifier head, and fine-tuned with a much lower learning rate (pretrained weights need
-        gentler updates than randomly initialized ones) plus a fuller augmentation pipeline —
-        flips, crop-with-padding, color jitter, small rotations, and label smoothing to reduce
+        classifier head, and fine-tuned with a much lower learning rate, since pretrained weights
+        need gentler updates than randomly initialized ones, plus a fuller augmentation pipeline —
+        flips, crop-with-padding, color jitter, small rotations, and label smoothing to cut down
         overconfidence.
       </p>
 
-      <h2>Vision Transformer, from scratch — and a dead end that became MNIST</h2>
+      <h2>Vision Transformer from scratch, and a dead end that became MNIST</h2>
       <p>
         Marcus and I built a ViT-Tiny-style Vision Transformer completely from scratch, following
         Akshay Gokhale's guide on training a ViT on CIFAR-10: patch embedding via a strided
         convolution, a learnable CLS token, learnable positional embeddings, multi-head
-        self-attention, and pre-norm transformer encoder blocks — twelve of them, about 5 million
+        self-attention, and pre-norm transformer encoder blocks. Twelve of them, about 5 million
         parameters total, trained with AdamW, OneCycleLR, and MixUp/CutMix augmentation.
       </p>
       <p>
-        The plan was to run this on CIFAR-10 too. It didn't cooperate — the dataset download failed
+        The plan was to run this on CIFAR-10 too. It didn't cooperate. The dataset download failed
         with a 503, and the fallback manual extraction turned up a corrupted archive. Under a real
-        deadline, we made the call to swap in MNIST instead, purely so we could still fully build,
-        train, and validate the transformer architecture rather than burn the rest of the project
-        debugging a dataset download. It's a smaller, easier dataset, and the results below aren't
-        an apples-to-apples comparison because of it — which is exactly the caveat I'd want if I
-        were reading someone else's report.
+        deadline, we swapped in MNIST instead, purely so we could still fully build, train, and
+        validate the transformer architecture instead of burning the rest of the project debugging
+        a dataset download. It's a smaller, easier dataset, so the results below aren't an
+        apples-to-apples comparison because of it. That's exactly the caveat I'd want if I were
+        reading someone else's report.
       </p>
 
       <h2>Results</h2>
@@ -115,18 +117,18 @@
 
       <div class="finding">
         <strong>Finding:</strong> the frozen ResNet-18 landed at almost exactly the same accuracy
-        as the un-augmented CNN baseline (77.45% both). That's not a coincidence worth glossing
-        over — it means simply having access to ImageNet's pretrained features bought us nothing
-        by itself. The backbone's representations were frozen and couldn't adapt to CIFAR-10's
+        as the un-augmented CNN baseline, 77.45% both. That's not a coincidence worth glossing
+        over. It means simply having access to ImageNet's pretrained features bought us nothing by
+        itself. The backbone's representations were frozen and couldn't adapt to CIFAR-10's
         specific visual patterns, so the model was limited to whatever a single trainable layer
         could squeeze out of features tuned for a different dataset.
       </div>
 
       <div class="finding">
         <strong>Finding:</strong> unfreezing just the last residual block and fine-tuning with a
-        low learning rate jumped accuracy to 94.47% — a 15–17 point improvement over both the
-        frozen model and the from-scratch CNN. Letting even a small part of the pretrained network
-        adapt to the target dataset mattered far more than which model we started from.
+        low learning rate jumped accuracy to 94.47%, a 15–17 point improvement over both the frozen
+        model and the from-scratch CNN. Letting even a small part of the pretrained network adapt
+        to the target dataset mattered way more than which model we started from.
       </div>
 
       <p>
@@ -138,13 +140,13 @@
 
       <h2>What I'd take into the next project</h2>
       <ul>
-        <li>Confirm a dataset downloads and extracts cleanly <em>before</em> building the model
-        that depends on it — the CIFAR-10 → MNIST swap cost us a clean comparison.</li>
+        <li>Confirm a dataset downloads and extracts cleanly before building the model that
+        depends on it. The CIFAR-10 → MNIST swap cost us a clean comparison.</li>
         <li>Re-initialize a model from pretrained weights before any additional retraining run, to
-        keep runs independent rather than accidentally continuing from a previous run's state.</li>
-        <li>Actually run the Vision Transformer on CIFAR-10 once time allows — I'd like to know
-        whether it would outperform the fine-tuned ResNet-18 on the harder dataset, or whether a
-        smaller transformer just memorizes a smaller dataset instead.</li>
+        keep runs independent instead of accidentally continuing from a previous run's state.</li>
+        <li>Actually run the Vision Transformer on CIFAR-10 once time allows. I want to know
+        whether it would beat the fine-tuned ResNet-18 on the harder dataset, or whether a smaller
+        transformer just memorizes a smaller dataset instead.</li>
       </ul>
 
       <h2>References</h2>
@@ -154,11 +156,46 @@
       </a>
       <a class="paper-link" href="https://arxiv.org/abs/1512.03385">
         <span>He, K., Zhang, X., Ren, S., &amp; Sun, J. (2015). Deep residual learning for image recognition.</span>
-        <span class="paper-cite">arXiv</span>
+        <span class="paper-cite">arXiv:1512.03385</span>
       </a>
       <a class="paper-link" href="https://arxiv.org/abs/1409.1556">
         <span>Simonyan, K., &amp; Zisserman, A. (2014). Very deep convolutional networks for large-scale image recognition.</span>
-        <span class="paper-cite">arXiv</span>
+        <span class="paper-cite">arXiv:1409.1556</span>
+      </a>
+      <a class="paper-link" href="https://arxiv.org/abs/2010.11929">
+        <span>Dosovitskiy, A., et al. (2020). An image is worth 16x16 words: Transformers for image recognition at scale.</span>
+        <span class="paper-cite">arXiv:2010.11929</span>
+      </a>
+      <a class="paper-link" href="https://arxiv.org/abs/1412.6980">
+        <span>Kingma, D. P., &amp; Ba, J. (2014). Adam: A method for stochastic optimization.</span>
+        <span class="paper-cite">arXiv:1412.6980</span>
+      </a>
+      <a class="paper-link" href="https://arxiv.org/abs/1711.05101">
+        <span>Loshchilov, I., &amp; Hutter, F. (2017). Decoupled weight decay regularization.</span>
+        <span class="paper-cite">arXiv:1711.05101 (AdamW)</span>
+      </a>
+      <a class="paper-link" href="http://jmlr.org/papers/v15/srivastava14a.html">
+        <span>Srivastava, N., et al. (2014). Dropout: A simple way to prevent neural networks from overfitting.</span>
+        <span class="paper-cite">Journal of Machine Learning Research, 15, 1929–1958</span>
+      </a>
+      <a class="paper-link" href="https://arxiv.org/abs/1710.09412">
+        <span>Zhang, H., et al. (2017). mixup: Beyond empirical risk minimization.</span>
+        <span class="paper-cite">arXiv:1710.09412</span>
+      </a>
+      <a class="paper-link" href="https://arxiv.org/abs/1905.04899">
+        <span>Yun, S., et al. (2019). CutMix: Regularization strategy to train strong classifiers with localizable features.</span>
+        <span class="paper-cite">arXiv:1905.04899</span>
+      </a>
+      <a class="paper-link" href="https://docs.pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.OneCycleLR.html">
+        <span>PyTorch. torch.optim.lr_scheduler.OneCycleLR.</span>
+        <span class="paper-cite">PyTorch documentation</span>
+      </a>
+      <a class="paper-link" href="https://www.cs.toronto.edu/~kriz/cifar.html">
+        <span>Krizhevsky, A., &amp; Hinton, G. (2009). The CIFAR-10 dataset.</span>
+        <span class="paper-cite">University of Toronto</span>
+      </a>
+      <a class="paper-link" href="http://yann.lecun.com/exdb/mnist/">
+        <span>LeCun, Y., Cortes, C., &amp; Burges, C. J. C. The MNIST database of handwritten digits.</span>
       </a>
       <a class="paper-link" href="https://medium.com/@akshay.m.gokhale/training-a-vision-transformer-from-scratch-on-cifar-10-7804248048d9">
         <span>Gokhale, A. M. Training a Vision Transformer from scratch on CIFAR-10.</span>
