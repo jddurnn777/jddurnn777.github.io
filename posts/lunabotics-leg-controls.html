@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Closed-Loop Leg Controls for a NASA Lunabotics Quadruped — Jennifer Durnall</title>
+  <meta name="description" content="Notes on PID control, quasi-direct drive, and whole-body control for UCF's NASA Lunabotics excavation quadruped, inspired by the CARA robot dog project.">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <h1>Jennifer Durnall</h1>
+    <p>Electrical Engineering, UCF — notes on power electronics, embedded systems, and ML projects</p>
+    <nav class="site-nav">
+      <a href="../index.html">Posts</a>
+      <a href="https://github.com/jddurnn777">GitHub</a>
+      <a href="https://www.linkedin.com/in/jennifer-durnall">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <div class="post-header">
+        <div class="post-date">September 2026</div>
+        <h1>Closed-Loop Leg Controls for a NASA Lunabotics Quadruped</h1>
+        <div class="subtitle">Learning PID, quasi-direct drive, and whole-body control from a rope-powered robot dog on YouTube.</div>
+      </div>
+
+      <div class="callout">
+        <strong>A note before this one:</strong> I'm on the Controls Engineering team for UCF's NASA
+        Lunabotics excavation quadruped, working on the electrical schematic and controls for one
+        leg. Lunabotics is a NASA-sponsored competition, and our team treats the specific design
+        numbers — current limits, wire gauges, calibration values, that kind of thing — as
+        internal to the team. So the schematic below has those blacked out, and I've kept the
+        specific figures out of the writing too. Everything else here — the concepts, what I
+        learned, how the system is architected — is exactly how I'd explain it to a friend.
+      </div>
+
+      <h2>What got me into this</h2>
+      <p>
+        Two videos got me oriented before I touched anything. The first was Brian Douglas'
+        <a href="https://youtu.be/UR0hOmjaHp0">PID Control — A brief introduction</a>, which is
+        just a genuinely clear explanation of the three terms and why you'd want each one. The
+        second was <a href="https://youtu.be/8s9TjRz01fo">I Built a Robot Dog Using... Rope?</a>,
+        a build log for a robot called CARA. CARA ended up being the design philosophy I kept
+        coming back to for our own leg.
+      </p>
+
+      <div style="margin: 1.4rem 0;">
+        <iframe width="100%" height="360" style="border-radius: 8px; border: 1px solid var(--cream-border);"
+          src="https://www.youtube.com/embed/UR0hOmjaHp0" title="PID Control - A brief introduction"
+          frameborder="0" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div style="margin: 1.4rem 0;">
+        <iframe width="100%" height="360" style="border-radius: 8px; border: 1px solid var(--cream-border);"
+          src="https://www.youtube.com/embed/8s9TjRz01fo" title="I Built a Robot Dog Using... Rope?"
+          frameborder="0" allowfullscreen loading="lazy"></iframe>
+      </div>
+
+      <h2>PID control, the way I'd actually explain it</h2>
+      <p>
+        PID is just three ways of reacting to "how wrong am I right now, and how has that
+        wrongness been behaving." Say a joint is supposed to hold a position and something nudges
+        it off:
+      </p>
+      <ul>
+        <li><strong>Proportional (P):</strong> the bigger the current error, the harder you push
+        back toward the target. Simple, but push too hard and you overshoot; push too soft and the
+        joint just sags under load and never quite gets there.</li>
+        <li><strong>Integral (I):</strong> keeps a running tally of error over time. This is what
+        kills that lingering sag — if the joint has been a little off for a while, the integral
+        term keeps nudging harder until it's actually zeroed out, not just close.</li>
+        <li><strong>Derivative (D):</strong> looks at how fast the error is changing and pushes
+        back against that. It's the term that keeps P from overshooting and oscillating — it sees
+        the joint approaching the target fast and eases off before it flies past.</li>
+      </ul>
+      <p>
+        Tuning is just balancing those three against each other: enough P to respond quickly,
+        enough I to kill steady-state error without making things sluggish, enough D to damp out
+        oscillation without making the joint feel numb.
+      </p>
+
+      <h2>Whole-body control and the CARA design philosophy</h2>
+      <p>
+        CARA's build log is where the "quasi-direct drive" idea comes from, and it's the concept I
+        think about most for our leg. A quasi-direct drive pairs a wide, high-torque "pancake"
+        motor with a low gear ratio — low enough that the connection between motor and leg is
+        almost direct. The point of that isn't speed, it's <em>compliance</em>: if the leg steps on
+        something unexpected, it can flex and give way like a muscle absorbing an impact, instead
+        of transmitting the full shock straight into a gearbox and snapping something. You still
+        keep almost all of your control authority; you just also get some natural forgiveness built
+        into the mechanics instead of relying entirely on software to react fast enough.
+      </p>
+      <p>
+        From there, CARA's control stack builds up in stages, and it's a clean mental model for
+        whole-body control in general:
+      </p>
+      <ol>
+        <li><strong>Tune the motors</strong> so the joint has a natural, damped response to
+        outside forces — this is the PID tuning above, applied per joint.</li>
+        <li><strong>Home each joint</strong> using a rise in motor current as the signal — drive
+        the joint until it hits a hard stop and current spikes, and now you know exactly where
+        zero is without needing a separate position sensor.</li>
+        <li><strong>Derive the inverse kinematics</strong> for the leg geometry, so you can command
+        the foot to a specific point in x, y, and z instead of commanding joint angles directly.
+        This is the layer that lets you think in terms of "put the foot here" rather than "spin
+        this motor this much."</li>
+        <li><strong>Plan a stepping trajectory.</strong> CARA uses a triangular trajectory for the
+        foot path — constant acceleration up, constant deceleration down — rather than a constant
+        velocity, which reads as noticeably less jerky. The same triangular profile gets applied
+        independently on each axis.</li>
+      </ol>
+      <p>
+        Our leg uses a five-bar linkage for the mechanical geometry, which is a big part of why the
+        inverse kinematics derivation isn't trivial — the foot's position is a function of two
+        motor angles through a closed linkage, not a simple open chain.
+      </p>
+
+      <h2>The leg's electrical architecture</h2>
+      <p>
+        Each leg has three joints, each driven by an ODrive S1 controller running one of three
+        control modes depending on what that joint needs: position, velocity, or torque control.
+        A Teensy 4.1 is the leg's local microcontroller, talking to all three ODrives over CAN.
+      </p>
+      <figure>
+        <img src="../assets/img/lunabotics/leg1-schematic-redacted.png" alt="Closed-loop leg controls schematic for Leg 1, with team-internal design values redacted">
+        <figcaption>The closed-loop controls schematic for Leg 1. Motor current limits, wire
+        gauges, calibration values, and a couple of internal team discussion notes are blacked out
+        — those stay internal to the team, per NASA Lunabotics competition norms.</figcaption>
+      </figure>
+
+      <h2>Why we ended up designing a PCB</h2>
+      <p>
+        The honest answer is signal integrity on the CAN bus. Once you're running several ODrives
+        off one bus, you start worrying about how to catch corrupted data, and that pushed us into
+        comparing error-detection methods — CRC, checksum, LRC (longitudinal redundancy check), and
+        VRC (vertical redundancy check). We landed on CRC, the same kind of cyclic redundancy check
+        cars use on their own CAN buses: it's a computed code appended to each message that lets
+        the receiver detect whether the data changed in transit, without needing to resend anything
+        to confirm it.
+      </p>
+      <p>
+        That decision fed into a bigger topology question — daisy chain vs. star:
+      </p>
+      <ul>
+        <li><strong>Daisy chain:</strong> a break anywhere leaves both sides improperly terminated,
+        and one failed connector can take down every node downstream of it. Intermittent wiring
+        faults are genuinely tedious to isolate. In exchange, it supports much higher achievable
+        speeds (roughly 1–5 Mbps).</li>
+        <li><strong>Star:</strong> a fault on one spoke only takes out that one device, and the
+        wiring itself is more intuitive — a central junction block with individual runs out to each
+        node, so troubleshooting is modular. The tradeoff is a much lower achievable speed
+        (typically under 125 kbps).</li>
+      </ul>
+      <p>
+        Since we're running the bus through a Jetson, we get to use CRC-based error detection —
+        the same category of technique automotive CAN buses lean on at much higher data rates —
+        which is part of why the topology tradeoff isn't as painful as it would be on a simpler
+        embedded setup.
+      </p>
+
+      <h2>Sensing: why an IMU</h2>
+      <p>
+        Beyond the joint-level control, the quadruped needs to know its own orientation — which
+        means an IMU (inertial measurement unit): an accelerometer, gyroscope, and often a
+        magnetometer bundled together. The accelerometer measures linear acceleration (how
+        velocity is changing), and the gyroscope measures angular rate around each axis (how
+        orientation is changing). Together those give the whole-body controller the information it
+        needs to know not just where each foot is, but which way the whole body is tipping or
+        turning.
+      </p>
+
+      <h2>A current challenge worth mentioning</h2>
+      <p>
+        One thing we're actively working through: the geometry of a curved foot is genuinely hard
+        to control for, because the contact point and effective foot geometry keep changing as the
+        foot rotates through a step. Our current plan is to use snowshoes and treat the foot as
+        effectively flat, since a flat contact surface is dramatically easier to model and control
+        than a curved one, at some cost in adaptability to uneven terrain.
+      </p>
+
+      <h2>References</h2>
+      <a class="paper-link" href="https://youtu.be/UR0hOmjaHp0">
+        <span>Douglas, B. PID Control — A brief introduction.</span>
+        <span class="paper-cite">YouTube</span>
+      </a>
+      <a class="paper-link" href="https://youtu.be/8s9TjRz01fo">
+        <span>I Built a Robot Dog Using... Rope? (CARA build log).</span>
+        <span class="paper-cite">YouTube</span>
+      </a>
+      <a class="paper-link" href="https://www.advancednavigation.com/tech-articles/inertial-measurement-unit-imu-an-introduction/">
+        <span>Inertial Measurement Unit (IMU) – An Introduction.</span>
+        <span class="paper-cite">Advanced Navigation</span>
+      </a>
+
+      <div class="post-footer">
+        Written by Jennifer Durnall. Questions or feedback? Reach me on
+        <a href="https://www.linkedin.com/in/jennifer-durnall">LinkedIn</a>.
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    &copy; 2026 Jennifer Durnall
+  </footer>
+
+</body>
+</html>
