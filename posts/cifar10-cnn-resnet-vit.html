@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CNN vs. ResNet-18 vs. Vision Transformer on CIFAR-10 — Jennifer Durnall</title>
   <meta name="description" content="A team comparison of a from-scratch CNN, frozen and fine-tuned ResNet-18 transfer learning, and a from-scratch Vision Transformer, for EEL4810.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -115,20 +118,22 @@
         </tbody>
       </table>
 
-      <div class="finding">
-        <strong>Finding:</strong> the frozen ResNet-18 landed at almost exactly the same accuracy
-        as the un-augmented CNN baseline, 77.45% both. That's not a coincidence worth glossing
-        over. It means simply having access to ImageNet's pretrained features bought us nothing by
-        itself. The backbone's representations were frozen and couldn't adapt to CIFAR-10's
-        specific visual patterns, so the model was limited to whatever a single trainable layer
-        could squeeze out of features tuned for a different dataset.
+      <div class="thought peach">
+        <span class="thought-lead">Not a coincidence, and worth sitting with.</span>
+        The frozen ResNet-18 landed at almost exactly the same accuracy as the un-augmented CNN
+        baseline — 77.45% both. That tells me simply having access to ImageNet's pretrained
+        features bought us nothing by itself. The backbone's representations were frozen and
+        couldn't adapt to CIFAR-10's specific visual patterns, so the model was stuck with whatever
+        a single trainable layer could squeeze out of features tuned for a totally different
+        dataset.
       </div>
 
-      <div class="finding">
-        <strong>Finding:</strong> unfreezing just the last residual block and fine-tuning with a
-        low learning rate jumped accuracy to 94.47%, a 15–17 point improvement over both the frozen
-        model and the from-scratch CNN. Letting even a small part of the pretrained network adapt
-        to the target dataset mattered way more than which model we started from.
+      <div class="thought lavender">
+        <span class="thought-lead">This is the one that actually surprised me.</span>
+        Unfreezing just the last residual block and fine-tuning with a low learning rate jumped
+        accuracy to 94.47% — a 15–17 point improvement over both the frozen model and the
+        from-scratch CNN. Letting even a small part of the pretrained network adapt to the target
+        dataset mattered way more than which model we started from.
       </div>
 
       <p>

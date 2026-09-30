@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Physics-Informed LSTM for Li-ion Battery SOH Estimation — Jennifer Durnall</title>
   <meta name="description" content="Comparing a linear baseline, LSTM, GRU, and a physics-informed LSTM for Li-ion battery state-of-health estimation on NASA's battery aging dataset.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -128,13 +131,13 @@ loss = data_loss + lambda * physics_loss</code></pre>
         spikes in the actual (black) curve are real measurements, not noise.</figcaption>
       </figure>
 
-      <div class="callout">
-        <strong>The headline finding, and it's a little deflating:</strong> the dumb linear
-        baseline beat every neural model. With only 489 training sequences from 3 cells, there just
-        wasn't enough data for the LSTM or GRU to learn anything beyond "SOH decreases roughly
-        linearly" — which is exactly what the baseline already assumes. Same kind of honest,
-        not-flashy result I ran into with a frozen ResNet-18 barely beating a from-scratch CNN in
-        my CIFAR-10 project. Small data favors simple models. Every time.
+      <div class="thought lavender">
+        <span class="thought-lead">Okay, kind of a letdown, ngl.</span>
+        The dumb linear baseline beat every neural model I built. With only 489 training sequences
+        from 3 cells, there just wasn't enough data for the LSTM or GRU to learn anything beyond
+        "SOH decreases roughly linearly" — which is exactly what the baseline already assumes. I
+        ran into this same thing with a frozen ResNet-18 barely beating a from-scratch CNN in my
+        CIFAR-10 project. Small data favors simple models. Every single time.
       </div>
 
       <h3>So did the physics-informed part actually do anything?</h3>
@@ -162,15 +165,16 @@ loss = data_loss + lambda * physics_loss</code></pre>
         <figcaption>Increasing λ improves both test RMSE and physical plausibility at the same time.</figcaption>
       </figure>
 
-      <div class="finding">
-        <strong>Finding:</strong> cranking up λ didn't just make predictions more physically
-        plausible, it also made them more accurate. RMSE dropped from 1.68% to 1.35% as λ went from
-        0 to 2.0, while the violation rate fell from 61.4% to 55.9%. My read: the monotonicity
-        penalty acts like a regularizer. It discourages the LSTM from overreacting to short-term
-        voltage/temperature noise between cycles, because it gets punished whenever a noisy
-        prediction happens to imply capacity recovery. That's a real, if modest, physics-informed
-        benefit. It just wasn't enough on its own to beat the simple baseline with this little
-        training data.
+      <div class="thought mint">
+        <span class="thought-lead">This part I actually got excited about.</span>
+        Cranking up λ didn't just make predictions more physically plausible, it made them more
+        accurate too. RMSE dropped from 1.68% to 1.35% as λ went from 0 to 2.0, and the violation
+        rate fell from 61.4% to 55.9% right alongside it. My read: the monotonicity penalty is
+        basically acting like a regularizer. It stops the LSTM from overreacting to short-term
+        voltage/temperature noise between cycles, since it gets punished any time a noisy
+        prediction happens to imply the battery healed itself. That's a real, if modest,
+        physics-informed win. Just not enough on its own to beat the simple baseline with this
+        little training data.
       </div>
 
       <h2>What the models all missed</h2>
