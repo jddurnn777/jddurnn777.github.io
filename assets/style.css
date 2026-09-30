@@ -501,3 +501,13 @@ a { color: var(--purple-ink); }
   article { padding: 1.5rem 1.3rem 1.8rem; }
   .thought { margin-left: 0.2rem; }
 }
+
+/* ---------- Plain reference list ---------- */
+.references { padding-left: 1.3rem; }
+.references li { margin-bottom: 0.55rem; font-size: 0.95rem; }
+.references .cite { color: var(--gray); font-size: 0.88rem; }
+
+@media (max-width: 600px) {
+  article table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  article pre { font-size: 0.8rem; }
+}

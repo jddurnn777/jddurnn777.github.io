@@ -30,12 +30,26 @@
         <div class="subtitle">Three ways to make a light visible in full daylight, and why blue is the hard color.</div>
       </div>
 
-      <div class="callout">
-        <strong>This one's still open:</strong> I got assigned the Status LED design for our
-        University Rover Challenge (URC) rover, and I'm mid-decision, not finished. This is how
-        I'm actually thinking through the tradeoffs right now. I'll update this post once the team
-        lands on one.
-      </div>
+      <p>
+        <strong>Tldr;</strong> I was assigned the Status LED for our University Rover Challenge rover:
+        a light on the back that shows red, blue or flashing green depending on what the rover is
+        doing, and has to be visible in full desert sun. I researched three designs. Option 1, a
+        16×16 addressable RGB matrix, is the cheapest (about $95–145) and most flexible, but blue
+        comes in under my brightness target, it needs the most control parts, and it requires precise
+        timing. Option 2, high-power LED strings, is the brightest and simplest to wire (about $214),
+        but has a narrow beam and fails "on" if a control wire comes loose. Option 3, emergency-vehicle
+        lightheads, is the lowest risk but costs about five times as much ($384–555) and I can't
+        confirm its brightness until Whelen sends data. Right now I'm leaning toward Option 1 with a
+        sunshade, with Option 2 as the backup.
+      </p>
+
+      <h2>Where this stands</h2>
+      <p>
+        This one's still open. I'm mid-decision, not finished, so this is how I'm actually thinking
+        through the tradeoffs right now. I'll update this post once the team lands on one. My full
+        working research doc is embedded below if you want every parts list, wiring table and
+        calculation.
+      </p>
 
       <div class="pdf-embed">
         <iframe src="../assets/docs/URC_Status_LED_Research.pdf" title="URC Status LED Research" loading="lazy"></iframe>
@@ -45,142 +59,413 @@
         </div>
       </div>
 
-      <h2>What the rules actually require</h2>
+      <h2>What URC is</h2>
       <p>
-        URC requires an LED indicator on the back of the rover, visible in bright daylight, that
-        signals rover state by color: red for autonomous operation, blue for teleoperation, and a
-        flashing green for successful arrival at a target. Competition events run in full
-        daylight, and the required E-stop has to immediately cut power to every battery-driven
-        system on the rover, which matters for how I wire this. Whatever I build has to actually go
-        dark when the E-stop fires, not fail "on."
+        The <a href="https://urc.marssociety.org/">University Rover Challenge (URC)</a> is a yearly
+        robotics competition run by the Mars Society, where university teams design and build a rover
+        that would be useful to early explorers on Mars. It's been running since 2006, and the final
+        competition is held at the Mars Desert Research Station near Hanksville, Utah, which was picked
+        because its terrain and soil are similar to Mars.
       </p>
       <p>
-        The electrical context I'm designing into: our power distribution board's 12 V outputs
-        aren't regulated, they float with the battery, a 4S6P LiFePO<sub>4</sub> pack that runs
-        roughly 10–14.6 V depending on charge state. The controller is a Jetson Orin Nano, so
-        3.3 V logic, with some 5 V pins available. And the enclosure needs to survive dust, rain,
-        and rough desert conditions.
+        Rovers compete in several missions. The exact set changes from year to year, but they've
+        included things like a science mission (analyzing soil for signs of life), retrieving and
+        delivering objects across rough terrain, doing hands-on tasks on mock equipment with a robotic
+        arm, and an autonomous navigation mission where the rover has to drive itself to targets with
+        no one driving it. Teams also have to qualify through written design reviews before they're
+        invited to the final event.
+      </p>
+      <p>
+        That autonomous mission is why the Status LED exists. When a rover is driving itself, judges
+        and anyone nearby need to be able to tell at a glance whether it's being driven by a person or
+        by its own software, and whether it thinks it's reached its goal.
       </p>
 
-      <h2>Why blue is the hard color</h2>
+      <h2>My assignment</h2>
       <p>
-        I'm targeting two things: luminance, how bright the lit surface actually looks (aiming
-        past 1500 nits, with 4500 cd/m² as the outdoor-visibility reference point), and intensity
-        per color, targeting over 80 candela, based roughly on the U.S. minimum brightness
-        standard for a car brake light. Candela is the unit that actually accounts for human eye
-        sensitivity by color, and blue is the color our eyes are least sensitive to. So it's
-        consistently the hardest of the three to hit a visibility target with, no matter which
-        hardware I pick.
+        I was assigned the Status LED design. The original task list was:
+      </p>
+      <ul>
+        <li>Figure out whether a power regulator is needed (step-up, step-down or both).</li>
+        <li>Look at how it would connect to our controller, the Jetson.</li>
+        <li>See whether the LED array can run on 12 V (preferable), and check the current ratings for
+        the regulator.</li>
+      </ul>
+      <p>
+        That turned into a much bigger comparison once I realized that "visible in bright daylight" is
+        the hard part, and that every option has a different weak spot.
+      </p>
+
+      <h2>What the rules actually require</h2>
+      <p>
+        URC requires an LED indicator on the back of the rover, visible in bright daylight (for
+        example an LED array or high-power LED), that signals rover state by color:
+      </p>
+      <ul>
+        <li><strong>Red:</strong> autonomous operation.</li>
+        <li><strong>Blue:</strong> teleoperation (someone manually driving).</li>
+        <li><strong>Flashing green:</strong> successful arrival at a target.</li>
+      </ul>
+      <p>
+        Two other rules shape the design a lot. All competition events are held in full daylight. And
+        the rover's E-stop has to immediately stop the rover and cut power from every battery to every
+        system on it. So whatever I build has to actually go dark when the E-stop fires, and I don't
+        want a design that can fail "on."
+      </p>
+      <p>
+        There also used to be a minimum size for the indicator (8 cm × 8 cm, from a 2022 Q&amp;A). That's
+        not a requirement anymore, but I've kept it as a reference for sizing.
+      </p>
+
+      <h2>The electrical context I'm designing into</h2>
+      <ul>
+        <li><strong>The battery:</strong> a 4S6P LiFePO<sub>4</sub> pack, 12.8 V nominal and 36 Ah
+        (about 460 Wh). Its voltage swings from about 14.6 V fully charged down to around 10 V in
+        normal use, and the battery management system (BMS) cuts power at 8.8 V.</li>
+        <li><strong>The power distribution board (PDB):</strong> its 12 V outputs aren't regulated.
+        They float with the battery. The only regulator on our power diagram is the one feeding the
+        Jetson, a Pololu S13V25F12.</li>
+        <li><strong>The controller:</strong> a Jetson Orin Nano. Its 40-pin header uses 3.3 V logic
+        and also has some 5 V pins.</li>
+        <li><strong>The environment:</strong> desert heat, dust and possibly rain, so the light needs
+        a mount that protects it.</li>
+      </ul>
+      <p>
+        That unregulated 12 V line ends up being one of the biggest differences between the three
+        options. Some LEDs need a steady 12 V, and some don't care.
+      </p>
+
+      <h2>My targets, and why blue is the hard color</h2>
+
+      <h3>Two ways to measure "bright"</h3>
+      <p>
+        I set targets for two different kinds of brightness, because they answer different
+        questions:
+      </p>
+      <ul>
+        <li><strong>Luminance (nits, or cd/m²):</strong> how bright the lit surface looks up close.
+        A screen needs at least about 1,500 nits to be readable in direct sun, and outdoor displays are
+        usually spec'd at 4,500 cd/m² or more. So I'm aiming past 1,500 nits, with 4,500 as the stretch
+        target.</li>
+        <li><strong>Intensity (candela, cd):</strong> how visible the light is from far away, where
+        it just looks like a dot. I'm targeting over 80 cd per color, based on the U.S. minimum for a
+        car brake light (FMVSS 108), which is designed to be seen in daylight. For comparison,
+        taillights are only 2–18 cd, because they're designed to be seen at night.</li>
+      </ul>
+
+      <h3>Why blue is always the problem</h3>
+      <p>
+        Candela is measured based on how sensitive the human eye is to each color. Our eyes are most
+        sensitive to green and least sensitive to blue. So even if a blue LED puts out a similar amount
+        of power, it counts for a lot less candela, and it looks dimmer to a person. That's why blue
+        ends up being the hardest of the three colors to hit a visibility target with, no matter which
+        hardware I pick, and it's the color I kept checking first for every option.
+      </p>
+
+      <h2>How I got to three options</h2>
+      <p>
+        My first idea was a small 8×8 WS2815 matrix (8 cm × 8 cm, 64 LEDs) with its own small
+        controller, a Raspberry Pi Pico 2, plus a level shifter. My early conclusion was that a 12 V
+        addressable matrix with a small dedicated controller made more sense than powering a 5 V LED
+        matrix directly from the Jetson. As I worked through the brightness math, I sized up to a 16×16
+        panel, moved the control onto the Jetson, and added two completely different approaches to
+        compare against it.
       </p>
 
       <h2>Option 1 — an addressable RGB matrix (WS2815)</h2>
+
+      <h3>The design</h3>
       <p>
-        A 16×16 WS2815 panel is the cheapest and most software-flexible option, roughly $125–145
-        including mounting, with the widest viewing angle (120°) and full software control over
-        color and pattern. The catch is it needs the most supporting hardware: a regulator, a
-        level shifter, and precise firmware-side timing.
+        A 16×16 WS2815 panel: 256 RGB LEDs in a 16 cm × 16 cm square, with a 120° viewing angle, and
+        every LED individually controllable in software. The panel gets power from a PDB output, through
+        a 5 A inline fuse, into a Pololu S13V25F12 regulator, whose steady 12 V output feeds the panel.
+        A 1000 µF capacitor sits across the panel's power input to smooth out current spikes. For
+        control, the Jetson sends color data from its SPI MOSI pin, through a 74AHCT125 level shifter
+        and a 330 Ω series resistor, into the panel's data input.
+      </p>
+
+      <h3>Why it needs a regulator</h3>
+      <p>
+        The panel's datasheet range is 9.5–13.5 V, but our pack runs from 8.8 to 14.6 V. That goes
+        both above <em>and</em> below the panel's range, so a simple step-down or step-up regulator
+        wouldn't be enough. The S13V25F12 is a buck-boost regulator: it holds 12 V (±4%) whether the
+        pack is above or below 12 V. It's also the same regulator the Jetson already uses, which keeps
+        the parts list simpler. It's rated for about 2.5 A, but the real limit depends on heat, so it
+        needs airflow.
+      </p>
+
+      <h3>Why it needs a level shifter</h3>
+      <p>
+        Essentially the level shifter is required because the Jetson is sending timed data to the
+        LEDs, not just turning a pin on and off like in normal embedded systems. Each WS2815 chip runs
+        its logic at 5 V internally, and its datasheet sets the "high" threshold at 70% of that:
+        0.7 × 5 V = 3.5 V. The Jetson's header outputs 3.3 V, and that's the best case, which is 0.2 V
+        short. It might work without the shifter by luck, but why take that chance on a competition
+        run? The 74AHCT125 reads 3.3 V as a clear high (its threshold is 2.0 V) and outputs a full 5 V,
+        so every pulse is clearly readable.
+      </p>
+
+      <h3>The timing problem, and the SPI trick</h3>
+      <p>
+        This is the part that makes Option 1 the most complex. The WS2815 reads data from one wire in
+        pulses at 800,000 bits per second, so each bit is 1.25 µs long. The panel tells a 0 from a 1 by
+        how long the pulse is: a short high pulse is a 0, and a long one (about 0.8 µs) is a 1. Each
+        pixel needs 24 bits (8 each for green, red and blue), and there are 256 pixels.
       </p>
       <p>
-        The level shifter isn't optional. The WS2815 reads its data line internally at 5 V logic,
-        and its datasheet sets the high threshold at 70% of that, 3.5 V. The Jetson's SPI output is
-        3.3 V, which is 0.2 V short of that threshold. It might work by luck. I'd rather not bet a
-        competition run on luck, so a 74AHCT125 shifter bumps the signal to a clean 5 V before it
-        reaches the panel.
+        The problem is that Linux on the Jetson can't reliably toggle a pin with sub-microsecond
+        precision. So instead, the SPI hardware generates the pulses. Each LED bit gets sent as 3 SPI
+        bits: <code>100</code> makes a short pulse (a 0), and <code>110</code> makes a long pulse (a 1).
+        Running SPI at 2.4 MHz makes each group of 3 SPI bits last exactly 1.25 µs. One full frame is
+        256 pixels × 24 bits × 3 = 2,304 bytes.
       </p>
       <p>
-        Since the Jetson can't reliably toggle a pin with sub-microsecond precision the way the
-        WS2815 protocol needs, the SPI hardware generates the timing instead: each LED bit gets
-        encoded as 3 SPI bits (short pulse = 0, long pulse = 1), sent at 2.4 MHz. Clever
-        workaround, but also exactly the kind of "precise timing required" tradeoff I keep coming
-        back to.
+        My main concern with this is that every pulse has to be read correctly, thousands of times a
+        second. A 3.3 V signal is already under the threshold, and each edge takes time to rise, so a
+        pulse can look shorter than it really is or not register at all. A single misread bit shifts the
+        colors on every pixel after it. The shifter fixes the voltage side, and the software side keeps
+        things simple: only resend a frame when the rover's state changes, and make flashing green by
+        alternating a green frame and an off frame at 1–2 Hz.
+      </p>
+
+      <h3>Power</h3>
+      <ul>
+        <li>Worst case, every LED at full white: 256 × 0.3 W = 76.8 W, which is 6.4 A at 12 V. That's
+        way over what the regulator can handle.</li>
+        <li>But only one color should ever be lit. One color is roughly a third of full white, about
+        2.1 A, so I'd cap the current at 2.0 A in firmware. At that cap the panel still runs at nearly
+        full brightness for a single color. I'd want to measure this on the bench to confirm it.</li>
+        <li>From the battery, 24 W out of the regulator at about 90% efficiency is about 2.1 A at
+        12.8 V, rising to 2.7 A when the pack is low.</li>
+      </ul>
+
+      <h3>Heat and weather</h3>
+      <p>
+        The panel isn't sealed, so it goes in a sealed, dust-tight and waterproof Hammond enclosure
+        with a clear lid (180 × 180 × 60 mm), with cable glands where the power and data cables go in,
+        and a vent screw to stop the lid from fogging up. (One detail I learned: cable glands only seal
+        around round jacketed cable. Loose single wires will leak.)
       </p>
       <p>
-        Weather-wise, the panel and level shifter are only rated to 85°C, and back-of-envelope
-        heating math puts the sealed enclosure close enough to that limit in direct desert sun that
-        a sunshade isn't optional for this option. It's load-bearing for the electronics surviving
-        the day.
+        I would be concerned about the heat. At the 2 A cap, the panel is putting out about 24 W, and a
+        box like this warms up about 1.3 °C per watt, so that's roughly 30 °C of heating inside the box
+        before the sun even hits it. The most at-risk parts are the panel and the level shifter, both
+        rated to 85 °C. Inside the box they'd see about 35 °C from the desert air, plus about 30 °C from
+        the LEDs, plus sunlight. That's a minimum of around 65 °C, which is fairly close to 85 °C, so
+        this def shows we'd need a sunshade with this option.
       </p>
       <p>
-        Against my targets: red and green clear the bar comfortably. Blue lands at roughly half
-        the luminance target without a sunshade. Workable, but the option I'm least confident in
-        for blue specifically.
+        For the sunshade, a cap-style hood with a 170 × 170 mm interior, 80–100 mm deep and open at the
+        bottom would fit the panel. I'd want our mechanical team to make it. An 8″ traffic-signal visor
+        would also work and is cheaper, but it shades the panel's corners.
+      </p>
+
+      <h3>How it does against my targets</h3>
+      <table>
+        <thead>
+          <tr><th>Color</th><th>Intensity (total)</th><th>Luminance</th><th>&gt; 80 cd</th><th>&gt; 1,500 nits</th><th>&gt; 4,500 nits</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Red</td><td>92 cd</td><td>3,600 nits</td><td>✓</td><td>✓</td><td>✗</td></tr>
+          <tr><td>Green</td><td>294 cd</td><td>11,500 nits</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Blue</td><td>56 cd</td><td>2,200 nits</td><td>✗</td><td>✓</td><td>✗</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Red and green are fine, and blue only marginally makes it, so this design works best with a
+        sunshade. The 120° viewing angle is the widest of the three options, and the 16 × 16 cm panel is
+        bigger than the old 8 × 8 cm reference.
+      </p>
+
+      <h3>Cost</h3>
+      <p>
+        About $78 before the enclosure and mounting, and about $125–145 total with them. With a
+        purchased traffic-signal visor instead of a custom hood, it comes down to around $95. The panel
+        itself is only $26.10.
       </p>
 
       <h2>Option 2 — high-power LED strings (Mean Well LDD-700H + Cree XP-E2)</h2>
+
+      <h3>The design</h3>
       <p>
-        This is the electrically simpler path: three Mean Well LDD-700H constant-current drivers,
-        one per color, each driving a pair of Cree XP-E2 LEDs in series at a fixed 700 mA. No
-        regulator, no level shifter, no MOSFETs. The driver itself holds current constant across
-        the pack's whole voltage swing, and each driver's DIM pin reads the Jetson's 3.3 V GPIO
-        output directly.
+        This is the electrically simpler path. Power comes from a PDB output, through a 5 A inline fuse,
+        into three Mean Well LDD-700H constant-current drivers wired in parallel, one per color. Each
+        driver powers a string of two Cree XP-E2 LEDs in series at a fixed 700 mA: one red string, one
+        green and one blue. All six LEDs are mounted on an 80 × 80 mm aluminum plate that spreads their
+        heat, each under a 20 mm Carclo wide-spot lens. For control, each driver's DIM pin connects
+        straight to a Jetson GPIO pin, with a 10 kΩ pulldown resistor to ground. No regulator, level
+        shifter, MOSFETs or LED resistors needed.
+      </p>
+
+      <h3>Why it doesn't need a regulator</h3>
+      <p>
+        The LDD-700H is essentially a regulator itself. It holds the LED current at 700 mA anywhere
+        across its 9–52 V input range, and our pack stays inside that range except for the last 0.2 V
+        before the BMS cuts off. The LED strings only need at most about 5.2 V (red) to 7.6 V (green),
+        which leaves the driver plenty of headroom at the pack's typical 12.8 V. Near the very bottom of
+        the pack, green might dim slightly, but that only happens right before the BMS shuts everything
+        off anyway. No regulator also means one less part to overheat or fail.
+      </p>
+
+      <h3>The brightness math</h3>
+      <ul>
+        <li><strong>Flux:</strong> at 350 mA the LEDs put out about 67.2 lm (red), 107 lm (green) and
+        30.6 lm (blue). At 700 mA, Cree's curve gives about 1.7× that: 114, 182 and 52 lm.</li>
+        <li><strong>Intensity:</strong> the Carclo lens datasheet gives a peak of 2.50 cd per lumen.
+        So each LED is flux × 2.50, and there are 2 LEDs per color.</li>
+        <li><strong>Luminance:</strong> intensity divided by the lit area. Two 20 mm lenses is about
+        6.28 × 10⁻⁴ m², which is tiny, so the luminance numbers come out huge.</li>
+      </ul>
+      <table>
+        <thead>
+          <tr><th>Color</th><th>Intensity (total)</th><th>Luminance</th><th>&gt; 80 cd</th><th>&gt; 1,500 nits</th><th>&gt; 4,500 nits</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Red</td><td>570 cd</td><td>907,000 nits</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Green</td><td>910 cd</td><td>1,449,000 nits</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Blue</td><td>260 cd</td><td>414,000 nits</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Numerically, this is the strongest option. All three colors clear both brightness targets, and
+        blue is the brightest of all three options here, just because a dedicated high-power LED beats
+        spreading the same power across lots of small ones.
+      </p>
+
+      <h3>The catch: a narrow beam</h3>
+      <p>
+        The lens is what makes it so bright, and it's also the tradeoff. The beam is 31.5° wide at half
+        brightness, so the light drops to half at about ±16° off-center. Even at half brightness, blue
+        is still 130 cd, but someone off to the side sees a lot less. At 10 m behind the rover, ±16°
+        only covers about ±2.8 m to either side. That's a much narrower cone than Option 1's 120°.
       </p>
       <p>
-        The tradeoffs are mechanical and behavioral rather than electrical. Each LED sits under a
-        narrow wide-spot lens, so the usable viewing cone is much tighter than the matrix's 120°.
-        Someone off to the side sees meaningfully less light. And because the driver's DIM pin
-        turns the color <em>on</em> when left floating high, a loose control wire fails toward
-        "on" rather than "off," which is the opposite of what I'd want near an E-stop requirement.
+        I looked at two ways around that, and neither works. Adding a diffuser to make the light look
+        bigger spreads it back out, and blue drops to 33 cd, which fails. Going without lenses (bare LEDs
+        have a 130° beam) gives red 73 cd, green 116 cd and blue 33 cd, so red and blue fail. The lenses
+        are required.
       </p>
+
+      <h3>The catch: it fails "on"</h3>
       <p>
-        Against my targets, this is actually the strongest option numerically. All three colors
-        clear both brightness targets, and blue is the brightest of all three options here, purely
-        because a dedicated high-power LED beats spreading the same power across many small ones.
+        The driver's DIM pin turns the color <em>on</em> when it's left floating. While the Jetson is
+        booting, its pins float, so all three colors could light up at once. The 10 kΩ pulldown should
+        hold them off, but I'd want to test that on the bench. And if a DIM wire comes loose, that color
+        turns on and stays on. That's the opposite of what I'd want next to an E-stop requirement, so the
+        software also needs to drive all three pins low at startup before the mode logic runs.
+      </p>
+
+      <h3>Power, weather and cost</h3>
+      <p>
+        Worst case is green: 2 LEDs × 3.8 V × 0.7 A = 5.3 W, or about 5.9 W from the pack with driver
+        losses. That's only 0.46 A from the battery (0.66 A when the pack is low), and about 1.3% of the
+        pack's energy for an hour of use. The drivers are fully encapsulated (IP67), and the LED plate
+        just needs a clear polycarbonate dust cover and a sunshade. A 7″ monitor hood fits the 80 mm
+        plate with room to spare. The mount is more mechanically involved than Option 1, and the total
+        comes to about $214.
       </p>
 
       <h2>Option 3 — vehicle-grade lightheads (Whelen ION)</h2>
+
+      <h3>The design</h3>
       <p>
-        The lowest-engineering-risk option: pre-built Whelen ION surface-mount lightheads, one per
-        color, the same class of hardware used on real emergency vehicles. Wiring is about as
-        simple as it gets: power through a fuse, ground through a logic-level MOSFET switched by a
-        Jetson GPIO. No regulator or level shifter needed since these are built to run directly on
-        a vehicle's 12 V system, which our pack's voltage range fits inside.
+        The lowest-engineering-risk option: pre-built Whelen ION surface-mount lightheads, one per color,
+        the same class of hardware used on real emergency vehicles. Power comes from a PDB output through
+        a 5 A fuse to all three heads. Each head's ground wire runs through its own IRLB8721 logic-level
+        MOSFET to ground, and each MOSFET's gate is driven by a Jetson GPIO pin through a 100 Ω resistor,
+        with a 100 kΩ pulldown so the light stays off while the Jetson boots. No regulator or level
+        shifter needed, since these are built to run directly on a vehicle's 12 V system, which swings
+        about as much as our pack does.
+      </p>
+
+      <h3>Why a MOSFET, and one wiring gotcha</h3>
+      <p>
+        A Jetson GPIO pin can't power a light directly, so the MOSFET acts as a switch: 3.3 V on the gate
+        turns it on (the IRLB8721 is fully on by 2.35 V), which connects the head's ground and lights it.
+        At 0.40 A per head, the MOSFET only wastes under 0.01 W, so it doesn't need a heatsink.
       </p>
       <p>
-        The catch is cost, roughly five times either other option, and that Whelen doesn't publish
-        intensity or luminance numbers for these heads. They're certified to
-        <a href="https://www.sae.org/standards/content/j595_202108/">SAE J595</a>, the standard
-        for emergency-vehicle warning lights, which is reassuring, but I can't check them against
-        my own numeric targets until I actually get photometric data from Whelen directly.
+        One thing I caught while working through this: since the MOSFET switches the <em>ground</em>
+        wire, the heads' pattern and sync wires can't be tied to ground anywhere else. If they are, they
+        could bypass the switch and leave the head on.
       </p>
+
+      <h3>The catch: cost and missing data</h3>
+      <p>
+        The catch is cost, roughly five times either other option, at about $384 for the parts with
+        listed prices and around $555 with the green head. And Whelen doesn't publish intensity,
+        luminance or viewing angle numbers for these heads. They're certified to
+        <a href="https://www.sae.org/standards/content/j595_202108/">SAE J595</a>, the standard for
+        emergency-vehicle warning lights, which are designed to be seen in daylight. That's reassuring,
+        but I can't check them against my own numbers until I get photometric data from Whelen directly.
+      </p>
+      <p>
+        There are a couple of other things to confirm before buying. The product page only mentions flash
+        patterns, so we'd need to make sure the heads have a steady-on mode. The listed 0.40 A is an
+        average across flash patterns, so steady-on might draw more. And I'd want to check Whelen's minimum
+        input voltage, since if it's above 10 V, the heads could cut out near the bottom of the pack.
+      </p>
+
+      <h2>Side by side</h2>
+      <table>
+        <thead>
+          <tr><th></th><th>Option 1: Matrix</th><th>Option 2: LED strings</th><th>Option 3: Lightheads</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Cost</td><td>~$95–145</td><td>~$214</td><td>~$384–555</td></tr>
+          <tr><td>Blue intensity</td><td>56 cd (fails)</td><td>260 cd</td><td>Not published</td></tr>
+          <tr><td>Viewing angle</td><td>120°</td><td>31.5° (half-brightness)</td><td>Not published</td></tr>
+          <tr><td>Regulator needed</td><td>Yes</td><td>No</td><td>No</td></tr>
+          <tr><td>Extra control parts</td><td>Level shifter, SPI setup, firmware current cap</td><td>Pulldowns only</td><td>3 MOSFETs</td></tr>
+          <tr><td>Pack current (one color)</td><td>~2.1 A</td><td>~0.46 A</td><td>~0.40 A</td></tr>
+          <tr><td>Biggest risk</td><td>Precise timing, heat, blue</td><td>Narrow beam, fails on</td><td>Unconfirmed brightness, cost</td></tr>
+          <tr><td>Flexibility</td><td>Any color or pattern in software</td><td>3 on/off channels</td><td>3 on/off heads</td></tr>
+        </tbody>
+      </table>
 
       <h2>Where I'm leaning</h2>
       <p>
-        Right now: Option 1, because it's the cheapest and most flexible, with Option 2 as an
-        active fallback rather than an afterthought. If the matrix's timing requirements turn out
-        to be more fragile in practice than they look on paper, I want a simpler backup already
-        scoped rather than starting from zero. Option 3 stays in reserve as the "spend more, worry
-        less" option if we decide the risk on the other two isn't worth the savings.
+        Right now: Option 1, because it's the cheapest and most flexible, and it would work as long as we
+        add the sunshade. Option 2 is an active fallback, not an afterthought. If the matrix's timing
+        requirements turn out to be more fragile in practice than they look on paper, I want a simpler
+        backup already scoped instead of starting from zero. Option 3 stays in reserve as the "spend
+        more, worry less" option if we decide the risk on the other two isn't worth the savings.
       </p>
+
+      <h3>Next steps</h3>
+      <ul>
+        <li>Request Whelen's photometric data so Option 3 is actually comparable on numbers.</li>
+        <li>Settle whether our mechanical team builds a sunshade before committing to Option 1's
+        blue-channel margin.</li>
+        <li>Bench-test the parts I flagged: Option 1's current draw at the firmware cap, and Option 2's
+        pulldowns holding the LEDs off while the Jetson boots.</li>
+      </ul>
+
+      <h2>What I've learned so far</h2>
       <p>
-        Next concrete steps: request Whelen's photometric data so Option 3 is actually comparable
-        on numbers, and settle whether a sunshade gets built by our mechanical subteam before I
-        commit to Option 1's blue-channel margin.
+        The biggest thing is that "just add an LED" turns into a real systems problem once it has to work
+        outdoors. Brightness depends on how the human eye sees color, the power setup depends on a battery
+        whose voltage moves around, the control side depends on timing a Linux computer isn't great at,
+        and the enclosure depends on heat. Every option trades one of those off against another. Writing
+        down the numbers for each one is what made the tradeoffs clear enough to actually compare.
       </p>
 
       <h2>References</h2>
-      <a class="paper-link" href="https://www.sae.org/standards/content/j595_202108/">
-        <span>SAE International. J595: Directional flashing optical warning devices for authorized emergency, maintenance, and service vehicles.</span>
-      </a>
-      <a class="paper-link" href="https://www.ecfr.gov/current/title-49/subtitle-B/chapter-V/part-571/subpart-B/section-571.108">
-        <span>49 CFR 571.108 — Standard No. 108; Lamps, reflective devices, and associated equipment (FMVSS 108).</span>
-        <span class="paper-cite">eCFR</span>
-      </a>
-      <a class="paper-link" href="https://www.nist.gov/pml/owm/si-units-luminous-intensity">
-        <span>SI units — luminous intensity (the candela).</span>
-        <span class="paper-cite">NIST</span>
-      </a>
-      <a class="paper-link" href="https://www.whelen.com/surface-mounted-lightheads/ion-series">
-        <span>ION Series — surface-mounted lightheads.</span>
-        <span class="paper-cite">Whelen Engineering</span>
-      </a>
-      <a class="paper-link" href="https://www.meanwell.com/Upload/PDF/LDD-H/LDD-H-SPEC.PDF">
-        <span>LDD-H series DC-DC constant current LED driver datasheet.</span>
-        <span class="paper-cite">Mean Well</span>
-      </a>
-      <a class="paper-link" href="https://downloads.cree-led.com/files/ds/x/XLamp-XPE2.pdf">
-        <span>XLamp XP-E2 LED datasheet.</span>
-        <span class="paper-cite">Cree LED</span>
-      </a>
+      <ol class="references">
+        <li><a href="https://urc.marssociety.org/">University Rover Challenge</a>.
+          <span class="cite">The Mars Society</span></li>
+        <li><a href="https://www.sae.org/standards/content/j595_202108/">SAE International. J595: Directional flashing optical warning devices for authorized emergency, maintenance, and service vehicles</a>.</li>
+        <li><a href="https://www.ecfr.gov/current/title-49/subtitle-B/chapter-V/part-571/subpart-B/section-571.108">49 CFR 571.108 — Standard No. 108; Lamps, reflective devices, and associated equipment (FMVSS 108)</a>.
+          <span class="cite">eCFR</span></li>
+        <li><a href="https://www.nist.gov/pml/owm/si-units-luminous-intensity">SI units — luminous intensity (the candela)</a>.
+          <span class="cite">NIST</span></li>
+        <li><a href="https://www.whelen.com/surface-mounted-lightheads/ion-series">ION Series — surface-mounted lightheads</a>.
+          <span class="cite">Whelen Engineering</span></li>
+        <li><a href="https://www.meanwell.com/Upload/PDF/LDD-H/LDD-H-SPEC.PDF">LDD-H series DC-DC constant current LED driver datasheet</a>.
+          <span class="cite">Mean Well</span></li>
+        <li><a href="https://downloads.cree-led.com/files/ds/x/XLamp-XPE2.pdf">XLamp XP-E2 LED datasheet</a>.
+          <span class="cite">Cree LED</span></li>
+      </ol>
 
       <div class="post-footer">
         Written by Jennifer Durnall. Questions or feedback? Reach me on
