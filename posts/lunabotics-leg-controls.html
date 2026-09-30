@@ -616,9 +616,10 @@ J_reflected = N² · J_motor</code></pre>
         controller running one of three control modes depending on what that joint needs: position,
         velocity or torque control. The ODrive handles the fast inner loops (field-oriented control of
         the brushless motor, plus the velocity and position loops) using encoder feedback, so the
-        higher-level code doesn't have to. A Teensy 4.1 is the leg's local microcontroller and talks
-        to all three ODrives over CAN. The Teensy 4.1 fits this well since it's fast and has multiple
-        CAN controllers built in.
+        higher-level code doesn't have to. In the current schematic, a Teensy 4.1 is the leg's local
+        microcontroller and talks to all three ODrives over CAN. The Teensy 4.1 fits this well since
+        it's fast and has multiple CAN controllers built in. The robot's overall communications setup
+        is still being decided though (more on that further down).
       </p>
       <figure>
         <img src="../assets/img/lunabotics/leg1-schematic-redacted.png" alt="Closed-loop leg controls schematic for Leg 1, with team-internal design values redacted">
@@ -693,12 +694,21 @@ J_reflected = N² · J_motor</code></pre>
         five-bar kinematics and the hard stops used for homing stop being abstract.
       </p>
 
-      <h2>Why we ended up designing a PCB</h2>
+      <h2>Still open: communications and error detection</h2>
       <p>
-        The short answer is signal integrity on the CAN bus. Once you're running several ODrives off
-        one bus, you start worrying about how to catch corrupted data, and that pushed us into
-        comparing error-detection methods: CRC, checksum, LRC (longitudinal redundancy check) and VRC
-        (vertical redundancy check).
+        This part isn't decided yet, so I want to be clear that everything in this section is
+        options we're comparing, not what the robot uses. Once you're running several ODrives and
+        controllers that all need to talk to each other, two big questions come up: how the
+        communication is set up (which devices talk to which, and how the wiring is laid out), and
+        how to catch data that gets corrupted along the way. It's also part of why a custom PCB came
+        up, since a board with fixed connectors, controlled routing for the signal pairs and
+        termination built in is a lot more reliable than a mess of loose jumpers.
+      </p>
+
+      <h3>Error detection options</h3>
+      <p>
+        We've been comparing four error-detection methods: CRC, checksum, LRC (longitudinal
+        redundancy check) and VRC (vertical redundancy check).
       </p>
       <ul>
         <li><strong>VRC:</strong> basically a parity bit per character. Cheap, but it misses any
@@ -713,14 +723,18 @@ J_reflected = N² · J_motor</code></pre>
         everything else.</li>
       </ul>
       <p>
-        We landed on CRC, the same kind of
+        CRC is the strongest on paper, and it's the same kind of
         <a href="https://en.wikipedia.org/wiki/Cyclic_redundancy_check">cyclic redundancy check</a>
-        cars use on their own CAN buses. Essentially it's a calculated code added to each message that
-        lets the receiver detect whether the data changed in transit, without having to resend
-        anything to confirm it.
+        cars use on their own CAN buses. Essentially it's a calculated code added to each message
+        that lets the receiver detect whether the data changed in transit, without having to resend
+        anything to confirm it. The tradeoff is that it takes more computation than a simple parity
+        bit or checksum, so which method we use depends on how the rest of the communications ends up
+        being set up. That hasn't been decided yet.
       </p>
+
+      <h3>Topology options: daisy chain vs. star</h3>
       <p>
-        That decision fed into a bigger topology question, daisy chain vs. star:
+        The other half of the question is how the wiring is laid out:
       </p>
       <ul>
         <li><strong>Daisy chain:</strong> a break anywhere leaves both sides improperly terminated,
@@ -732,11 +746,10 @@ J_reflected = N² · J_motor</code></pre>
         troubleshooting is modular. The tradeoff is a much lower speed, typically under 125 kbps.</li>
       </ul>
       <p>
-        Since we're running the bus through a Jetson, we get to use CRC-based error detection, the
-        same category of technique automotive CAN buses rely on at much higher data rates, which is
-        part of why the topology tradeoff isn't as painful as it would be on a simpler embedded setup.
-        A PCB also just makes the wiring more reliable than a mess of loose jumpers: fixed connectors,
-        controlled routing for the differential pair, and termination built in where it belongs.
+        My main takeaway so far is that these two questions depend on each other. Stronger error
+        detection can make up for some of the risk of one layout, and the speed a layout supports
+        limits how much data (and how much error checking) fits on the bus. I'll update this post
+        once the team makes a call.
       </p>
 
       <h2>A current challenge: the foot</h2>
