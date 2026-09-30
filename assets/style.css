@@ -295,6 +295,11 @@ main {
   max-width: 44rem;
   margin: -0.8rem 0 1.6rem;
 }
+.section-intro a {
+  text-decoration: underline;
+  text-decoration-color: rgba(236, 130, 201, 0.45);
+  text-underline-offset: 3px;
+}
 .post-list.compact {
   grid-template-columns: repeat(3, 1fr);
   margin-top: 1.4rem;
