@@ -38,14 +38,14 @@
         much life is left in a battery before it fails on you.
       </p>
       <p>
-        I built this project specifically to get hands-on with a modeling pattern used in
-        <a href="https://www.ece.ucf.edu/dpel/">UCF's Dey Power Electronics Lab (DPEL)</a>, ahead of
-        applying to work there. Dr. Dey's own published work uses a
-        <strong>physics-informed neural network (PINN)</strong> to estimate circuit parameters that
-        drift with age inside a power converter, in real time, from indirect measurements rather
-        than a direct reading. A battery's internal state is basically the same kind of problem —
-        a component whose properties change with age, that you have to infer rather than measure
-        directly. Same underlying idea, different object.
+        I built this project after reading a paper out of
+        <a href="https://www.ece.ucf.edu/dpel/">UCF's Dey Power Electronics Lab (DPEL)</a> that
+        uses a <strong>physics-informed neural network (PINN)</strong> to estimate circuit
+        parameters that drift with age inside a power converter, in real time, from indirect
+        measurements rather than a direct reading. A battery's internal state is basically the
+        same kind of problem — a component whose properties change with age, that you have to
+        infer rather than measure directly. Same underlying idea, different object, and it seemed
+        like a good excuse to actually implement the pattern myself instead of just reading about it.
       </p>
       <p>
         So the plan was: build four different ways to predict SOH, compare them fairly, and be
