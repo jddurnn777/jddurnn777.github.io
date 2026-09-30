@@ -343,6 +343,37 @@ a { color: var(--purple-deep); }
   font-size: 0.86rem;
 }
 
+.pdf-embed {
+  margin: 1.4rem 0;
+}
+
+.pdf-embed iframe {
+  width: 100%;
+  height: 700px;
+  border: 1px solid var(--cream-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pdf-embed .pdf-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.86rem;
+  color: var(--gray);
+  margin-top: 0.5rem;
+}
+
+.pdf-embed .pdf-caption a {
+  color: var(--purple-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pdf-embed .pdf-caption a:hover {
+  color: var(--purple);
+}
+
 .post-footer {
   margin-top: 2.5rem;
   padding-top: 1.2rem;
