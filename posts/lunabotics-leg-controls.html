@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Closed-Loop Leg Controls for a NASA Lunabotics Quadruped — Jennifer Durnall</title>
-  <meta name="description" content="Notes on PID control, quasi-direct drive, and whole-body control for UCF's NASA Lunabotics excavation quadruped, inspired by the CARA robot dog project.">
+  <meta name="description" content="What NASA Lunabotics is, my role on UCF's Controls team, and detailed notes on PID control, quasi-direct drive, CARA-style homing, inverse kinematics, IMU sensing, and whole-body control for our excavation quadruped.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .references li { margin-bottom: 0.55rem; font-size: 0.95rem; }
+    .references .cite { color: var(--gray); font-size: 0.88rem; }
+  </style>
 </head>
 <body>
 
@@ -27,27 +31,129 @@
       <div class="post-header">
         <div class="post-date">September 2026</div>
         <h1>Closed-Loop Leg Controls for a NASA Lunabotics Quadruped</h1>
-        <div class="subtitle">Learning PID, quasi-direct drive, and whole-body control from a rope-powered robot dog on YouTube.</div>
+        <div class="subtitle">Learning PID, quasi-direct drive, homing, and whole-body control from a rope-powered robot dog on YouTube, and applying it to a walking lunar excavator.</div>
       </div>
 
-      <div class="callout">
-        <strong>A note before this one:</strong> I'm on the Controls Engineering team for UCF's
-        NASA Lunabotics excavation quadruped, working on the electrical schematic and controls for
-        one leg. Lunabotics is a NASA-sponsored competition, and our team treats the specific
-        design numbers — current limits, wire gauges, calibration values, that kind of thing — as
-        internal to the team. So the schematic below has those blacked out, and I've kept the
-        specific figures out of the writing too. Everything else here is exactly how I'd explain it
-        to a friend.
-      </div>
+      <p>
+        <strong>Tldr;</strong> Lunabotics is a yearly NASA competition where college teams build a
+        robot that digs up fake lunar soil and uses it to build a berm. Our UCF team is building a
+        four-legged walking excavator instead of a wheeled one. I'm an undergrad on the Controls
+        team supporting our Controls lead, and most of my time has gone into learning the CARA
+        homing sequence, assembling the leg (mechanical and electrical), and researching IMUs, PID
+        control and whole-body control. This post is everything I've learned so far, from how one
+        joint holds its position all the way up to how the whole robot stays balanced while it
+        digs. It's long on purpose.
+      </p>
 
-      <h2>What got me into this</h2>
+      <h2>What Lunabotics is</h2>
+
+      <h3>The challenge</h3>
+      <p>
+        The <a href="https://www.nasa.gov/learning-resources/lunabotics-challenge/">NASA Lunabotics
+        Challenge</a> is a two-semester university competition run out of NASA's Kennedy Space
+        Center every year. Teams use NASA's systems engineering process to design, build and test a
+        prototype robot that can do lunar construction. It's been running since 2010, and over time
+        it's shifted from mostly mining to construction, which lines up with what Artemis will
+        actually need on the Moon.
+      </p>
+      <p>
+        The main task is to excavate simulated lunar soil (regolith), carry it across rough terrain,
+        and use it to build a <strong>berm</strong>. Essentially a berm is a raised mound of soil
+        that gives structure, support or protection. On the Moon that could be something like a wall
+        that blocks rocket exhaust from spraying debris off a landing pad, or shielding for equipment.
+        So the robot isn't just a digger. It has to dig, move across uneven ground while it's loaded,
+        and dump the material precisely enough to actually build something.
+      </p>
+
+      <h3>How it's judged</h3>
+      <p>
+        What I think is really interesting is that how the robot does on competition day is only
+        part of the score. Judges also look at:
+      </p>
+      <ul>
+        <li><strong>Mass:</strong> everything launched to the Moon costs a lot per kilogram, so a
+        lighter robot is a better robot.</li>
+        <li><strong>Energy use:</strong> power on the lunar surface is limited, so teams track how
+        much energy the robot uses to do its job.</li>
+        <li><strong>Communications:</strong> how much data goes back and forth, since bandwidth to
+        the Moon is limited too.</li>
+        <li><strong>Autonomy:</strong> the more the robot can do without a person driving it, the
+        better. Real lunar operations have communication delays and limited crew time.</li>
+        <li><strong>Systems engineering:</strong> teams submit plans and engineering reports through
+        the year, so there's a real paper trail of requirements, design decisions and testing along
+        with the hardware.</li>
+      </ul>
+
+      <h3>How the competition runs</h3>
+      <p>
+        The cycle opens in the fall, when teams apply and start turning in planning documents.
+        Selected teams bring their robots to a qualifying round at UCF's Exolith Lab here in Orlando,
+        where they run in lunar regolith simulant. The top teams then move on to the final round at
+        the Kennedy Space Center Visitor Complex. For the 2026 cycle NASA picked 47 teams for
+        qualification and moved the top 10 on to a three-day final in May. Having both the qualifier
+        and the finals basically in our backyard is def part of what makes this a cool competition to
+        be in as a UCF student.
+      </p>
+
+      <h3>Why it matters beyond the competition</h3>
+      <p>
+        This isn't just a student project with a Moon theme on it. It's tied directly to NASA's plans
+        for lunar infrastructure. Kennedy's Swamp Works lab has been developing its own lunar
+        excavator, IPEx (the Infrastructure Pilot Excavator), and the problems students work on
+        (moving regolith with a light, low-power, autonomous machine) are the same problems NASA is
+        working on for real missions.
+      </p>
+
+      <h3>Why our team is building a quadruped</h3>
+      <p>
+        Most Lunabotics robots use wheels or tracks. Ours walks. Our team is building a four-legged
+        excavation robot, and that's a big part of why the controls side is so interesting. A
+        wheeled robot mostly has to worry about driving and steering. A legged robot has to decide,
+        many times a second, where every foot goes, how much force every joint puts out, and how to
+        keep the whole body from tipping over, all while the load it's carrying changes as it digs
+        and dumps. That's what the rest of this post is about.
+      </p>
+
+      <h2>Where I fit on the team</h2>
+      <p>
+        I want to be upfront about this: I'm an undergraduate on the Controls team, not a lead. Our
+        team has four leads (Controls, Electrical, Mechanical and Software), and each lead has team
+        members supporting them. My role has been to help the Controls lead with whatever tasks come
+        up. In practice, what I've spent the most time on is:
+      </p>
+      <ul>
+        <li><strong>Learning the CARA homing sequences:</strong> understanding how each joint finds
+        its zero position when the robot powers on, and why that step matters so much for everything
+        after it.</li>
+        <li><strong>Hands-on assembly:</strong> putting together both the mechanical and electrical
+        components of the leg.</li>
+        <li><strong>Research:</strong> IMU sensors, PID control and whole-body control.</li>
+      </ul>
+      <p>
+        So read this as what I've learned from helping build and understand the system, not the full
+        design story of the robot. That belongs to the whole team, and especially our leads.
+      </p>
+
+      <h2>What I can and can't share</h2>
+      <p>
+        Lunabotics is a NASA-sponsored competition, and our team treats specific design numbers
+        (current limits, wire gauges, calibration values, controller gains, that kind of thing) as
+        internal to the team. So the schematic further down has those values blacked out, and I kept
+        specific figures for our robot out of the writing too. Any numbers you do see in this post
+        come from public sources like the CARA project or datasheets, and I say where they come from.
+        Everything else is how I'd explain it to a friend.
+      </p>
+
+      <h2>How I got oriented</h2>
       <p>
         Two videos got me oriented before I touched anything. The first was Brian Douglas'
-        <a href="https://youtu.be/UR0hOmjaHp0">PID Control — A brief introduction</a>, which is
-        just a genuinely clear explanation of the three terms and why you'd want each one. The
-        second was <a href="https://youtu.be/8s9TjRz01fo">I Built a Robot Dog Using... Rope?</a>, a
-        build log for a robot called CARA. CARA ended up being the design philosophy I kept coming
-        back to for our own leg.
+        <a href="https://youtu.be/UR0hOmjaHp0">PID Control — A brief introduction</a>, which is just
+        a really clear explanation of the three terms and why you'd want each one. The second was
+        <a href="https://youtu.be/8s9TjRz01fo">I Built a Robot Dog Using... Rope?</a>, a build log by
+        Aaed Musa for a quadruped called CARA. CARA ended up being the design reference I kept going
+        back to, mostly because its hardware is pretty close to ours: each joint is driven by an
+        ODrive S1 motor controller, a Teensy 4.1 talks to those controllers over CAN, and the leg
+        uses a five-bar linkage.
       </p>
 
       <div style="margin: 1.4rem 0;">
@@ -61,70 +167,457 @@
           frameborder="0" allowfullscreen loading="lazy"></iframe>
       </div>
 
-      <h2>PID control, the way I'd actually explain it</h2>
+      <h2>The big picture: layers of control</h2>
       <p>
-        PID is just three ways of reacting to "how wrong am I right now, and how has that wrongness
-        been behaving." Say a joint is supposed to hold a position and something nudges it off:
-      </p>
-      <ul>
-        <li><strong>Proportional (P):</strong> the bigger the current error, the harder you push
-        back toward the target. Simple, but push too hard and you overshoot. Push too soft and the
-        joint just sags under load and never quite gets there.</li>
-        <li><strong>Integral (I):</strong> keeps a running tally of error over time. This is what
-        kills that lingering sag. If the joint's been a little off for a while, the integral term
-        keeps nudging harder until it's actually zeroed out, not just close.</li>
-        <li><strong>Derivative (D):</strong> looks at how fast the error is changing and pushes
-        back against that. It's the term that keeps P from overshooting and oscillating. It sees
-        the joint approaching the target fast and eases off before it flies past.</li>
-      </ul>
-      <p>
-        Tuning is just balancing those three against each other: enough P to respond quickly,
-        enough I to kill steady-state error without getting sluggish, enough D to damp out
-        oscillation without making the joint feel numb.
-      </p>
-
-      <h2>Whole-body control and the CARA design philosophy</h2>
-      <p>
-        CARA's build log is where the "quasi-direct drive" idea comes from, and it's the concept I
-        think about most for our leg. A quasi-direct drive pairs a wide, high-torque "pancake"
-        motor with a low gear ratio, low enough that the connection between motor and leg is almost
-        direct. The point isn't speed, it's <em>compliance</em>. If the leg steps on something
-        unexpected, it can flex and give way like a muscle absorbing an impact, instead of
-        transmitting the full shock straight into a gearbox and snapping something. You still keep
-        almost all of your control authority. You just also get some natural forgiveness built into
-        the mechanics instead of relying entirely on software to react fast enough.
-      </p>
-      <p>
-        From there, CARA's control stack builds up in stages, and it's a clean mental model for
-        whole-body control in general:
+        Before getting into details, it helped me a lot to see that controlling a legged robot isn't
+        one problem. It's a stack of problems, each one running on top of the one below it:
       </p>
       <ol>
-        <li><strong>Tune the motors</strong> so the joint has a natural, damped response to
-        outside forces. That's the PID tuning above, applied per joint.</li>
-        <li><strong>Home each joint</strong> using a rise in motor current as the signal. Drive the
-        joint until it hits a hard stop and current spikes, and now you know exactly where zero is
-        without a separate position sensor.</li>
-        <li><strong>Derive the inverse kinematics</strong> for the leg geometry, so you can command
-        the foot to a specific point in x, y, and z instead of commanding joint angles directly.
-        This is the layer that lets you think "put the foot here" instead of "spin this motor this
-        much."</li>
-        <li><strong>Plan a stepping trajectory.</strong> CARA uses a triangular trajectory for the
-        foot path, constant acceleration up, constant deceleration down, rather than constant
-        velocity, and it's noticeably less jerky. Same triangular profile gets applied
-        independently on each axis.</li>
+        <li><strong>Joint level:</strong> make each motor go to, and hold, whatever position, speed
+        or torque it's told. This is where PID is.</li>
+        <li><strong>Calibration:</strong> make sure every joint knows where "zero" is, so the numbers
+        the controller uses actually match the physical leg. This is homing.</li>
+        <li><strong>Leg level:</strong> turn "put the foot here" into the joint angles that get it
+        there. This is inverse kinematics.</li>
+        <li><strong>Step level:</strong> plan the path each foot takes through the air and when each
+        leg lifts and lands. This is trajectory planning and gait.</li>
+        <li><strong>Body level:</strong> coordinate all four legs so the body stays balanced and moves
+        the way you want, using feedback from an IMU. This is whole-body control.</li>
       </ol>
       <p>
-        Our leg uses a five-bar linkage for the mechanical geometry, which is a big part of why the
-        inverse kinematics derivation isn't trivial. The foot's position is a function of two motor
-        angles through a closed linkage, not a simple open chain.
+        The rest of the post goes up that stack roughly in order.
       </p>
+
+      <h2>PID control</h2>
+
+      <h3>The intuition</h3>
+      <p>
+        Essentially PID is three ways of reacting to "how wrong am I right now, and how has that been
+        changing." The <em>error</em> is the difference between where you want to be (the setpoint)
+        and where you actually are (the measurement). Say a joint is supposed to hold a position and
+        something pushes it off:
+      </p>
+      <ul>
+        <li><strong>Proportional (P):</strong> the bigger the error right now, the harder you push
+        back toward the target. Simple, but push too hard and you overshoot. Push too soft and the
+        joint sags under load and never quite gets there.</li>
+        <li><strong>Integral (I):</strong> keeps a running total of error over time. This is what
+        gets rid of that leftover sag. If the joint has been a little off for a while, the integral
+        term keeps pushing harder until the error is actually zero, not just close.</li>
+        <li><strong>Derivative (D):</strong> looks at how fast the error is changing and pushes back
+        against that. This is the term that keeps P from overshooting and oscillating. It sees the
+        joint coming at the target fast and eases off before it flies past.</li>
+      </ul>
+
+      <h3>The equation</h3>
+      <p>
+        Written out, the controller output <code>u(t)</code> (for a motor, that's basically how much
+        torque or current to command) is:
+      </p>
+<pre><code>u(t) = Kp·e(t) + Ki·∫e(τ)dτ + Kd·de(t)/dt
+
+e(t) = setpoint(t) − measurement(t)</code></pre>
+      <p>
+        <code>Kp</code>, <code>Ki</code> and <code>Kd</code> are the gains, which are the knobs you
+        tune. Each one scales how much its term contributes. The way I think about it: P reacts to the
+        <em>present</em>, I reacts to the <em>past</em>, and D reacts to where things are heading in
+        the <em>future</em>.
+      </p>
+
+      <h3>What it looks like on a microcontroller</h3>
+      <p>
+        A real controller doesn't run in continuous time. It runs in a loop at a fixed rate, so the
+        integral becomes a running sum and the derivative becomes the difference between two samples:
+      </p>
+<pre><code>error      = setpoint - measured
+integral  += error * dt
+derivative = (error - prev_error) / dt
+output     = Kp*error + Ki*integral + Kd*derivative
+prev_error = error</code></pre>
+      <p>
+        That looks almost too simple, and in practice a few things make real PID loops messier:
+      </p>
+      <ul>
+        <li><strong>Integral windup:</strong> if the joint is physically blocked (pressed against a
+        hard stop or stuck in regolith), the error never goes away, so the integral keeps growing.
+        When the obstruction clears, all that built-up integral makes the joint lurch way past its
+        target. The fix is to clamp the integral or stop adding to it while the output is maxed
+        out.</li>
+        <li><strong>Derivative noise:</strong> taking the difference of two noisy measurements makes
+        the noise bigger, so the D term can make a motor buzz or chatter. It's common to low-pass
+        filter the derivative, or take the derivative of the measurement instead of the error so a
+        sudden setpoint change doesn't cause a big "derivative kick."</li>
+        <li><strong>Output limits:</strong> a motor can only put out so much current. The math
+        doesn't know that, so the output has to be clamped, and the rest of the loop has to still
+        behave when it's clamped.</li>
+      </ul>
+
+      <h3>Cascaded loops inside the motor controller</h3>
+      <p>
+        Something I didn't expect: on a motor controller like the ODrive, there isn't just one PID
+        loop. There are several nested inside each other. The outer <strong>position</strong> loop
+        decides what velocity the motor needs to close the position error. That velocity command goes
+        into a <strong>velocity</strong> loop, which decides what current (torque) is needed. That
+        goes into an inner <strong>current</strong> loop, which sets the actual voltages on the
+        motor's three phases. Each inner loop runs faster than the one outside it.
+      </p>
+      <p>
+        So when an ODrive runs a joint in position, velocity or torque control mode, you're
+        essentially choosing which layer of that stack you hand your command to. Position control
+        fits "hold this angle." Velocity control is useful for moving a joint at a steady speed, like
+        during homing. Torque control is what you want once a higher-level controller is deciding
+        forces directly, which is where whole-body control comes in.
+      </p>
+
+      <h3>Tuning</h3>
+      <p>
+        Tuning is balancing the gains against each other: enough P to respond quickly, enough I to get
+        rid of steady-state error without getting sluggish, and enough D to damp out oscillation
+        without making the joint feel numb. For nested loops, the usual approach is inside-out: tune
+        the innermost loop first, then the next one out, then the outermost. Within a loop, a common
+        hands-on approach is to raise the proportional gain until the joint starts to oscillate, back
+        it off, then add damping and finally a small amount of integral. For a legged robot,
+        "well-tuned" doesn't mean perfectly stiff. You usually want the joint to have a natural,
+        damped, slightly springy response, which is where the actuator design comes in.
+      </p>
+
+      <h2>Actuators: quasi-direct drive and CARA's capstan drives</h2>
+
+      <h3>The gear ratio tradeoff</h3>
+      <p>
+        Brushless motors spin fast but don't make much torque on their own, so almost every robot
+        joint has some kind of reduction between the motor and the joint. A reduction with ratio
+        <code>N</code> multiplies torque by about <code>N</code> and divides speed by <code>N</code>.
+        That sounds like a free win, but there's a catch that matters a lot for legs: the motor's rotor
+        inertia, as felt at the joint, gets multiplied by <code>N²</code>.
+      </p>
+<pre><code>τ_joint ≈ N · τ_motor
+ω_joint = ω_motor / N
+J_reflected = N² · J_motor</code></pre>
+      <p>
+        So a high-ratio gearbox makes the leg feel heavy and stiff from the outside. My main concern
+        with that for a leg is impacts. If the foot hits something it didn't expect, the motor can't
+        be back-driven easily, so the full shock goes into the gear teeth. High-ratio gearboxes also
+        tend to have backlash (a little bit of slop) and friction, which makes it harder to know
+        exactly how much force the leg is applying.
+      </p>
+
+      <h3>Quasi-direct drive</h3>
+      <p>
+        A quasi-direct drive (QDD) actuator pairs a wide, high-torque "pancake" motor with a low gear
+        ratio, low enough that the motor is almost directly connected to the leg. MIT's Cheetah robots
+        made this idea well known. The point isn't speed, it's <em>compliance</em> and
+        <em>transparency</em>:
+      </p>
+      <ul>
+        <li><strong>Compliance:</strong> if the leg steps on something unexpected, it can give a
+        little, like a muscle absorbing an impact, instead of sending the full shock into a gearbox
+        and breaking something.</li>
+        <li><strong>Backdrivability:</strong> you can push the leg by hand and the motor turns. That
+        means outside forces show up in the motor instead of being hidden behind friction.</li>
+        <li><strong>Transparency / proprioception:</strong> since there's so little in the way, motor
+        current is a good estimate of joint torque. For a brushless motor, torque is roughly
+        proportional to current (<code>τ ≈ Kt · I</code>), so the robot can essentially "feel" contact
+        forces through its motors without needing separate force sensors in the feet.</li>
+      </ul>
+      <p>
+        You still keep almost all of your control authority. You just also get some natural
+        forgiveness built into the mechanics instead of relying completely on software to react fast
+        enough.
+      </p>
+
+      <h3>Why rope?</h3>
+      <p>
+        CARA's twist is that its reduction isn't gears at all. It uses <strong>capstan
+        drives</strong>: a rope wrapped around a small drum on the motor and a bigger drum on the
+        joint, and friction between the rope and drums transmits the torque. According to the CARA
+        project page, capstan drives give zero backlash, high torque transparency, low inertia, low
+        cost and quiet operation, and CARA runs at an 8:1 ratio. That's a very typical quasi-direct
+        drive ratio, just built with rope instead of a planetary gearbox. It was a good reminder for
+        me that the principle (low ratio, high transparency) matters more than the specific mechanism.
+      </p>
+
+      <h2>Homing: learning the CARA homing sequence</h2>
+      <p>
+        This is the part I've spent the most time on, and it's also the part I underestimated the most
+        at first. Homing sounds like a boring setup step, but everything above it in the control stack
+        depends on it being right.
+      </p>
+
+      <h3>Why a robot needs to home</h3>
+      <p>
+        Every joint controller works in numbers: "go to angle X." For that to mean anything, the robot
+        has to know which physical position is angle zero. The encoders on our motors measure the
+        <em>motor's</em> rotation, but between the motor and the foot there's a reduction and a
+        linkage. With a reduction, the motor turns several times for one turn of the joint, so a
+        motor-side reading alone doesn't tell you for sure where the joint is when the robot first
+        powers on. Even a small offset at one joint gets multiplied by the length of the leg into a
+        noticeable error at the foot. So if the zero is wrong, inverse kinematics will calculate
+        perfectly correct angles for the wrong leg, and the foot ends up somewhere you didn't plan.
+      </p>
+
+      <h3>How current-based homing works</h3>
+      <p>
+        The CARA approach is nice because it doesn't need extra hardware like limit switches. It uses
+        the fact that, with a transparent actuator, motor current tells you about force. The project
+        page describes homing as spinning each joint to its physical limit, which is detected by a
+        rise in current draw. Broken down step by step:
+      </p>
+      <ol>
+        <li><strong>Start gentle:</strong> put the joint in a low-speed mode (velocity control fits
+        well) with a conservative current limit, so when it hits something it won't damage the leg,
+        the rope or itself.</li>
+        <li><strong>Drive toward a known hard stop:</strong> the joint moves slowly in one direction
+        toward a mechanical limit whose position is known from the CAD.</li>
+        <li><strong>Watch the current:</strong> while the joint is moving freely, it only needs a
+        little current to get past friction. When it hits the stop, the velocity loop keeps asking for
+        more torque to keep moving, so the current jumps up. When the current crosses a threshold (and
+        usually the velocity also drops to about zero), that's the signal it hit the limit.</li>
+        <li><strong>Record and offset:</strong> save the encoder reading at that moment. Since you
+        know the physical angle of the hard stop, you can calculate the offset between encoder counts
+        and the real joint angle.</li>
+        <li><strong>Back off:</strong> move the joint away from the stop to a safe starting pose so
+        it isn't left pushing into the limit.</li>
+        <li><strong>Repeat joint by joint, in order:</strong> the order matters. On a linkage leg,
+        some joints change the geometry of others, and you don't want two joints fighting each other
+        or the leg swinging into the body or the ground while it homes.</li>
+      </ol>
+
+      <h3>What can go wrong</h3>
+      <p>
+        Learning the sequence also meant learning how it can fail, which helped me understand the
+        whole system better:
+      </p>
+      <ul>
+        <li><strong>False triggers:</strong> if the threshold is too low, a sticky spot or extra
+        friction partway through the motion can look like a hard stop, and the joint "homes" in the
+        wrong place.</li>
+        <li><strong>Missed triggers:</strong> if the threshold is too high or the current limit is too
+        generous, the joint pushes hard into the stop before it notices, which stresses the
+        hardware.</li>
+        <li><strong>Soft stops:</strong> if the stop has some give to it, the exact point where the
+        current rises is less repeatable, so the zero can shift a little between power cycles.</li>
+        <li><strong>Transmission slip:</strong> on a rope-driven joint, if the rope ever slips on the
+        drum, the relationship between motor angle and joint angle changes, and the robot has to
+        re-home.</li>
+      </ul>
+      <p>
+        My biggest takeaway: homing is where the software's idea of the robot and the physical robot
+        get lined up. Everything after it, from inverse kinematics to balance, assumes that alignment
+        is correct.
+      </p>
+
+      <h2>Kinematics: from "put the foot here" to joint angles</h2>
+
+      <h3>Forward vs. inverse</h3>
+      <p>
+        <strong>Forward kinematics</strong> answers "given these joint angles, where is the foot?"
+        That one is usually straightforward, you just follow the geometry from the hip to the foot.
+        <strong>Inverse kinematics</strong> (IK) answers the question you actually care about when
+        walking: "I want the foot at this x, y, z point, so what joint angles get it there?"
+        Essentially IK is the layer that lets you think "put the foot here" instead of "spin this
+        motor this much."
+      </p>
+
+      <h3>Why the five-bar linkage makes it harder</h3>
+      <p>
+        Our leg uses a five-bar linkage, and so does CARA. In a simple "open chain" leg, like a human
+        arm, each joint just hangs off the one before it: shoulder, then elbow, then wrist. A five-bar
+        linkage is a <em>closed</em> loop. Two motors, usually mounted coaxially at the hip, each
+        drive their own link, and those links connect through two more links that meet at the knee
+        and foot. So the foot's position depends on both motor angles at the same time, through the
+        closed loop.
+      </p>
+      <p>
+        The benefit is mechanical: both heavy motors sit up at the hip instead of one riding out at
+        the knee, which keeps the moving mass of the leg low (and that makes the leg faster and easier
+        to control). The cost is that the IK isn't as simple as a textbook two-link arm.
+      </p>
+
+      <h3>The general approach</h3>
+      <p>
+        With three motors per leg, the problem splits into pieces:
+      </p>
+      <ol>
+        <li><strong>Hip abduction/adduction:</strong> one joint swings the whole leg in and out
+        sideways. Looking at the leg from the front, you can solve for that angle from the foot's
+        sideways and vertical position.</li>
+        <li><strong>The in-plane problem:</strong> once that angle is known, the rest of the problem
+        is in the flat plane of the leg: find the two hip motor angles that put the foot at a given
+        forward and vertical position.</li>
+        <li><strong>Closing the loop:</strong> in that plane, you work backward from the foot through
+        the linkage, usually with the law of cosines and some careful trig, to find where each driven
+        link has to point. A closed linkage usually has more than one mathematical solution, so part
+        of the job is picking the one that matches how the leg is actually assembled (knee bending
+        the right way).</li>
+      </ol>
+      <p>
+        One more thing I learned is that IK has to respect limits. If you ask for a foot position
+        outside the leg's reach, or one that would push a joint past its range, the math can give you
+        garbage or no answer at all, and the controller has to handle that safely instead of sending
+        a wild command to the motors.
+      </p>
+
+      <h2>Trajectory planning and gait</h2>
+      <p>
+        Once the leg can put its foot anywhere, the next question is <em>how</em> it gets from one
+        foothold to the next.
+      </p>
+
+      <h3>Swing and stance</h3>
+      <p>
+        Every step has two phases. In <strong>stance</strong>, the foot is on the ground holding
+        weight and pushing the body forward. In <strong>swing</strong>, the foot is in the air moving
+        forward to its next foothold. A gait is just the pattern of which legs are in swing and which
+        are in stance at any moment. CARA uses a trot, where diagonal pairs of legs move together. For
+        a slow, heavy excavator, gaits that keep more feet on the ground at once are also worth
+        looking at, since stability usually matters more than speed.
+      </p>
+
+      <h3>Shaping the step</h3>
+      <p>
+        The swing path matters more than I expected. If the foot lifts off and lands abruptly, the
+        robot jerks, the body shakes, and the impacts go straight into the hardware. The CARA project
+        page describes a cycloidal step trajectory, which gives a smooth takeoff and landing. In the
+        build video, the motion along each axis is also shaped with a triangular velocity profile:
+        constant acceleration up to a peak speed, then constant deceleration back down, instead of
+        jumping straight to a constant speed. That same profile gets applied independently on each
+        axis, and it's noticeably less jerky than moving at a constant velocity.
+      </p>
+
+      <h2>Sensing: why an IMU</h2>
+
+      <h3>What's inside an IMU</h3>
+      <p>
+        Beyond joint-level control, the quadruped needs to know its own orientation, which means an
+        IMU (inertial measurement unit). An IMU combines:
+      </p>
+      <ul>
+        <li>An <strong>accelerometer</strong>, which measures linear acceleration along three axes,
+        including the constant pull of gravity.</li>
+        <li>A <strong>gyroscope</strong>, which measures angular rate, how fast the body is rotating
+        around each axis.</li>
+        <li>Often a <strong>magnetometer</strong>, which measures the local magnetic field and can act
+        like a compass for heading.</li>
+      </ul>
+
+      <h3>Why no single sensor is enough</h3>
+      <p>
+        Each of those sensors has a different weakness, and that was the most important thing I
+        learned researching them:
+      </p>
+      <ul>
+        <li>The <strong>accelerometer</strong> can tell you which way is down when the robot is still,
+        since the only acceleration it sees is gravity. But as soon as the robot moves, steps or
+        vibrates, it sees those accelerations too, so the "down" estimate gets noisy.</li>
+        <li>The <strong>gyroscope</strong> is smooth and fast in the short term, but to get an angle
+        you have to integrate the rate over time, and any tiny bias adds up. So the angle estimate
+        slowly <em>drifts</em>.</li>
+        <li>The <strong>magnetometer</strong> gets thrown off easily by nearby metal and the magnetic
+        fields from motors and high-current wiring, which a robot full of brushless motors has a lot
+        of. (And on the actual Moon, there isn't a useful global magnetic field to navigate by
+        anyway.)</li>
+      </ul>
+
+      <h3>Sensor fusion</h3>
+      <p>
+        The fix is <strong>sensor fusion</strong>: combine the sensors so each one covers for the
+        others' weaknesses. The simplest version is a <em>complementary filter</em>. It trusts the
+        gyroscope for fast, short-term changes and the accelerometer for the long-term sense of which
+        way is down, essentially high-pass filtering one and low-pass filtering the other. More
+        advanced approaches include the Madgwick filter and Kalman filters, which weigh each sensor
+        by how much it can be trusted at each moment. A lot of modern IMU modules run this fusion on
+        the chip and output an orientation directly, which takes work off the main microcontroller.
+      </p>
+
+      <h3>What the robot uses it for</h3>
+      <p>
+        Together those give the whole-body controller what it needs: not just where each foot is, but
+        which way the whole body is tipping or turning. CARA, for example, uses a BNO086 IMU to sense
+        its orientation relative to gravity, which helps it balance and handle slopes. Its project
+        page also notes that it only updates its orientation from the IMU when all four feet are on
+        the ground, once per step cycle, which is a smart way of avoiding the noisiest parts of the
+        gait.
+      </p>
+
+      <h3>What I looked at when researching IMUs</h3>
+      <p>
+        When I was researching IMU options, these were the questions that kept coming up:
+      </p>
+      <ul>
+        <li><strong>Does it do fusion onboard?</strong> Getting an orientation estimate straight from
+        the sensor saves a lot of work on the microcontroller.</li>
+        <li><strong>How does it connect?</strong> I2C, SPI or UART, and whether that fits cleanly
+        with the rest of the electronics.</li>
+        <li><strong>How noisy is it, and how much does it drift?</strong> Datasheets list noise
+        density and bias stability for this.</li>
+        <li><strong>How fast does it update?</strong> The balance controller can't react faster than
+        its sensor data comes in.</li>
+        <li><strong>Where does it go on the robot?</strong> Ideally rigidly mounted near the center of
+        the body, away from motors and high-current wiring, and isolated from digging vibration. My
+        main concern here is that an excavator shakes a lot more than a walking robot dog, so
+        mounting is def something to think through early.</li>
+      </ul>
+
+      <h2>Whole-body control</h2>
+
+      <h3>What it is</h3>
+      <p>
+        Everything so far is about one leg. <strong>Whole-body control</strong> (WBC) is about
+        treating the robot as one system. Instead of each leg following its own path independently,
+        the controller asks: given where the body is, how it's oriented and how it's moving, what
+        forces should each foot push into the ground so the whole robot does what I want? Then it
+        turns those forces into joint torques for every motor at once.
+      </p>
+
+      <h3>How the layers fit together</h3>
+      <p>
+        In research quadrupeds like MIT's Mini Cheetah, the control stack is usually layered like
+        this:
+      </p>
+      <ol>
+        <li>A <strong>gait scheduler</strong> decides which feet should be on the ground and
+        when.</li>
+        <li>A <strong>body-level planner</strong>, often model predictive control (MPC), looks a short
+        time into the future and calculates the ground reaction forces each stance foot should apply
+        to keep the body on track.</li>
+        <li>The <strong>whole-body controller</strong> solves an optimization problem, usually a
+        quadratic program, that finds joint torques that produce those forces while respecting
+        physical constraints: feet in stance can't slip, so the force has to stay inside the friction
+        cone; motors have torque limits; and the robot's full dynamics have to add up.</li>
+        <li>Each joint then tracks its command with the kind of <strong>PD control</strong> from
+        above, usually in torque mode.</li>
+      </ol>
+      <p>
+        This is exactly where quasi-direct drive pays off. Whole-body control assumes you can command
+        a torque and actually get that torque at the joint. A transparent, backdrivable actuator makes
+        that assumption a lot closer to true.
+      </p>
+
+      <h3>Why it matters for an excavator</h3>
+      <p>
+        A robot dog walking on a flat floor is one thing. An excavator is harder in a few specific
+        ways that make whole-body control worth it:
+      </p>
+      <ul>
+        <li><strong>The load changes:</strong> as the robot digs and dumps regolith, its mass and
+        center of mass shift, so the force each leg has to carry keeps changing.</li>
+        <li><strong>The ground moves:</strong> regolith simulant is loose and can shift under a foot,
+        so "this foot is planted" isn't always a safe assumption.</li>
+        <li><strong>Digging pushes back:</strong> excavation forces act on the body, and the legs have
+        to resist them without the body tipping or sliding.</li>
+      </ul>
 
       <h2>The leg's electrical architecture</h2>
       <p>
-        Each leg has three joints, each driven by an <a href="https://docs.odriverobotics.com/v/latest/hardware/s1-datasheet.html">ODrive S1</a> controller
-        running one of three control modes depending on what that joint needs: position, velocity,
-        or torque control. A Teensy 4.1 is the leg's local microcontroller, talking to all three
-        ODrives over CAN.
+        Each leg has three joints, each driven by an
+        <a href="https://docs.odriverobotics.com/v/latest/hardware/s1-datasheet.html">ODrive S1</a>
+        controller running one of three control modes depending on what that joint needs: position,
+        velocity or torque control. The ODrive handles the fast inner loops (field-oriented control of
+        the brushless motor, plus the velocity and position loops) using encoder feedback, so the
+        higher-level code doesn't have to. A Teensy 4.1 is the leg's local microcontroller and talks
+        to all three ODrives over CAN. The Teensy 4.1 fits this well since it's fast and has multiple
+        CAN controllers built in.
       </p>
       <figure>
         <img src="../assets/img/lunabotics/leg1-schematic-redacted.png" alt="Closed-loop leg controls schematic for Leg 1, with team-internal design values redacted">
@@ -133,81 +626,125 @@
         out. Those stay internal to the team, per NASA Lunabotics competition norms.</figcaption>
       </figure>
 
+      <h3>CAN in a nutshell</h3>
+      <p>
+        CAN (Controller Area Network) is the bus cars use so dozens of electronic modules can talk to
+        each other, and it's popular in robotics for the same reasons. It sends data over a
+        <strong>differential pair</strong> (CAN High and CAN Low), so electrical noise that hits both
+        wires equally cancels out, which matters a lot right next to high-current motor wiring. Every
+        message has an ID, and when two nodes try to talk at the same time, the lower ID wins
+        automatically without corrupting either message. The bus also has to be
+        <strong>terminated</strong> at its ends so signals don't reflect back and mess up the data.
+      </p>
+
+      <h2>Hands-on assembly</h2>
+      <p>
+        A big part of my time has been physically putting the leg together, both the mechanical and
+        electrical side, and I think it's taught me as much as the research has. A schematic tells you
+        what connects to what, but it doesn't tell you how a cable routes through a joint that moves,
+        where connectors need strain relief so they don't work loose, or how much space there really
+        is around a motor once everything is mounted. Assembling the mechanical side also made the
+        controls concepts a lot more concrete for me. Once you've held the linkage in your hands, the
+        five-bar kinematics and the hard stops used for homing stop being abstract.
+      </p>
+
       <h2>Why we ended up designing a PCB</h2>
       <p>
-        The honest answer is signal integrity on the CAN bus. Once you're running several ODrives
-        off one bus, you start worrying about how to catch corrupted data, and that pushed us into
-        comparing error-detection methods: CRC, checksum, LRC (longitudinal redundancy check), and
-        VRC (vertical redundancy check). We landed on CRC, the same kind of
+        The short answer is signal integrity on the CAN bus. Once you're running several ODrives off
+        one bus, you start worrying about how to catch corrupted data, and that pushed us into
+        comparing error-detection methods: CRC, checksum, LRC (longitudinal redundancy check) and VRC
+        (vertical redundancy check).
+      </p>
+      <ul>
+        <li><strong>VRC:</strong> basically a parity bit per character. Cheap, but it misses any
+        error that flips an even number of bits.</li>
+        <li><strong>LRC:</strong> calculates parity across a whole block, column by column. Better,
+        but certain patterns of errors still cancel out.</li>
+        <li><strong>Checksum:</strong> adds up the data and sends the sum. Simple and fast, but some
+        errors (like two bytes swapping places) don't change the sum.</li>
+        <li><strong>CRC:</strong> treats the message as a big binary polynomial and divides it by a
+        fixed generator polynomial, and the remainder gets added to the message. It catches all
+        single-bit errors, all burst errors up to a certain length, and the vast majority of
+        everything else.</li>
+      </ul>
+      <p>
+        We landed on CRC, the same kind of
         <a href="https://en.wikipedia.org/wiki/Cyclic_redundancy_check">cyclic redundancy check</a>
-        cars use on their own CAN buses. It's a computed code appended to each message that lets
-        the receiver detect whether the data changed in transit, without needing to resend anything
-        to confirm it.
+        cars use on their own CAN buses. Essentially it's a calculated code added to each message that
+        lets the receiver detect whether the data changed in transit, without having to resend
+        anything to confirm it.
       </p>
       <p>
-        That decision fed into a bigger topology question — daisy chain vs. star:
+        That decision fed into a bigger topology question, daisy chain vs. star:
       </p>
       <ul>
         <li><strong>Daisy chain:</strong> a break anywhere leaves both sides improperly terminated,
-        and one failed connector can take down every node downstream of it. Intermittent wiring
-        faults are genuinely tedious to isolate. In exchange, it supports much higher achievable
-        speeds, roughly 1–5 Mbps.</li>
-        <li><strong>Star:</strong> a fault on one spoke only takes out that one device, and the
-        wiring itself is more intuitive. A central junction block with individual runs out to each
-        node, so troubleshooting is modular. The tradeoff is a much lower achievable speed,
-        typically under 125 kbps.</li>
+        and one failed connector can take down every node downstream of it. Intermittent wiring faults
+        are really tedious to track down. In exchange, it supports much higher speeds, roughly
+        1–5 Mbps.</li>
+        <li><strong>Star:</strong> a fault on one spoke only takes out that one device, and the wiring
+        is more intuitive. A central junction block with individual runs out to each node, so
+        troubleshooting is modular. The tradeoff is a much lower speed, typically under 125 kbps.</li>
       </ul>
       <p>
         Since we're running the bus through a Jetson, we get to use CRC-based error detection, the
-        same category of technique automotive CAN buses lean on at much higher data rates, which is
-        part of why the topology tradeoff isn't as painful as it would be on a simpler embedded
-        setup.
+        same category of technique automotive CAN buses rely on at much higher data rates, which is
+        part of why the topology tradeoff isn't as painful as it would be on a simpler embedded setup.
+        A PCB also just makes the wiring more reliable than a mess of loose jumpers: fixed connectors,
+        controlled routing for the differential pair, and termination built in where it belongs.
       </p>
 
-      <h2>Sensing: why an IMU</h2>
+      <h2>A current challenge: the foot</h2>
       <p>
-        Beyond joint-level control, the quadruped needs to know its own orientation, which means an
-        IMU (inertial measurement unit): an accelerometer, gyroscope, and often a magnetometer
-        bundled together. The accelerometer measures linear acceleration (how velocity is
-        changing), and the gyroscope measures angular rate around each axis (how orientation is
-        changing). Together those give the whole-body controller what it needs to know, not just
-        where each foot is, but which way the whole body is tipping or turning.
+        One thing we're actively working through is the foot itself. The geometry of a curved foot is
+        really hard to control for, because the contact point and effective foot shape keep changing
+        as the foot rotates through a step. That means the IK, which assumes the foot is a single
+        point, is slightly wrong at every moment, and the whole-body controller's idea of where the
+        force is being applied is slightly wrong too.
+      </p>
+      <p>
+        Our current plan is to use snowshoes and treat the foot as effectively flat. A flat contact
+        surface is a lot easier to model and control than a curved one, and on loose regolith a wider
+        foot also spreads the robot's weight over more area so it doesn't sink as much. The cost is
+        some adaptability on uneven terrain, since a flat foot doesn't roll over bumps the way a
+        rounded one does.
       </p>
 
-      <h2>A current challenge worth mentioning</h2>
+      <h2>What I'm taking away from this</h2>
       <p>
-        One thing we're actively working through: the geometry of a curved foot is genuinely hard
-        to control for, because the contact point and effective foot geometry keep changing as the
-        foot rotates through a step. Our current plan is to use snowshoes and treat the foot as
-        effectively flat, since a flat contact surface is dramatically easier to model and control
-        than a curved one, at some cost in adaptability to uneven terrain.
+        The biggest thing I've learned is how connected every layer is. A PID gain that's slightly
+        off, a homing offset that's a few degrees wrong, an IMU mounted somewhere that vibrates, or a
+        foot shape the model doesn't account for: any one of those shows up as the whole robot walking
+        badly, and it's rarely obvious which layer is the problem. Working on this team has made me a
+        lot more patient about understanding the bottom of the stack before trying to fix the top of
+        it.
       </p>
 
       <h2>References</h2>
-      <a class="paper-link" href="https://youtu.be/UR0hOmjaHp0">
-        <span>Douglas, B. PID Control — A brief introduction.</span>
-        <span class="paper-cite">YouTube</span>
-      </a>
-      <a class="paper-link" href="https://youtu.be/8s9TjRz01fo">
-        <span>I Built a Robot Dog Using... Rope? (CARA build log).</span>
-        <span class="paper-cite">YouTube</span>
-      </a>
-      <a class="paper-link" href="https://www.advancednavigation.com/tech-articles/inertial-measurement-unit-imu-an-introduction/">
-        <span>Inertial Measurement Unit (IMU) – An Introduction.</span>
-        <span class="paper-cite">Advanced Navigation</span>
-      </a>
-      <a class="paper-link" href="https://docs.odriverobotics.com/v/latest/hardware/s1-datasheet.html">
-        <span>ODrive S1 Datasheet.</span>
-        <span class="paper-cite">ODrive Robotics documentation</span>
-      </a>
-      <a class="paper-link" href="https://www.ti.com/lit/pdf/sloa101">
-        <span>Texas Instruments. Introduction to the Controller Area Network (CAN), Rev. B.</span>
-        <span class="paper-cite">SLOA101B</span>
-      </a>
-      <a class="paper-link" href="https://en.wikipedia.org/wiki/Cyclic_redundancy_check">
-        <span>Cyclic redundancy check.</span>
-        <span class="paper-cite">Wikipedia</span>
-      </a>
+      <ol class="references">
+        <li><a href="https://www.nasa.gov/learning-resources/lunabotics-challenge/">Lunabotics Challenge</a>.
+          <span class="cite">NASA</span></li>
+        <li><a href="https://www.nasa.gov/centers-and-facilities/kennedy/nasas-2026-lunabotics-winning-student-teams-engineering-lunar-future/">NASA's 2026 Lunabotics: Winning Student Teams Engineering Lunar Future</a>.
+          <span class="cite">NASA Kennedy Space Center</span></li>
+        <li><a href="https://youtu.be/UR0hOmjaHp0">Douglas, B. PID Control — A brief introduction</a>.
+          <span class="cite">YouTube</span></li>
+        <li><a href="https://youtu.be/8s9TjRz01fo">Musa, A. I Built a Robot Dog Using... Rope? (CARA build log)</a>.
+          <span class="cite">YouTube</span></li>
+        <li><a href="https://www.aaedmusa.com/projects/cara">Musa, A. CARA project page</a>.
+          <span class="cite">aaedmusa.com</span></li>
+        <li><a href="https://doi.org/10.1109/TRO.2016.2640183">Wensing, P. M., et al. Proprioceptive Actuator Design in the MIT Cheetah: Impact Mitigation and High-Bandwidth Physical Interaction for Dynamic Legged Robots</a>.
+          <span class="cite">IEEE Transactions on Robotics, 2017</span></li>
+        <li><a href="https://arxiv.org/abs/1909.06586">Kim, D., et al. Highly Dynamic Quadruped Locomotion via Whole-Body Impulse Control and Model Predictive Control</a>.
+          <span class="cite">arXiv:1909.06586</span></li>
+        <li><a href="https://www.advancednavigation.com/tech-articles/inertial-measurement-unit-imu-an-introduction/">Inertial Measurement Unit (IMU) – An Introduction</a>.
+          <span class="cite">Advanced Navigation</span></li>
+        <li><a href="https://docs.odriverobotics.com/v/latest/hardware/s1-datasheet.html">ODrive S1 Datasheet</a>.
+          <span class="cite">ODrive Robotics documentation</span></li>
+        <li><a href="https://www.ti.com/lit/pdf/sloa101">Texas Instruments. Introduction to the Controller Area Network (CAN), Rev. B</a>.
+          <span class="cite">SLOA101B</span></li>
+        <li><a href="https://en.wikipedia.org/wiki/Cyclic_redundancy_check">Cyclic redundancy check</a>.
+          <span class="cite">Wikipedia</span></li>
+      </ol>
 
       <div class="post-footer">
         Written by Jennifer Durnall. Questions or feedback? Reach me on
