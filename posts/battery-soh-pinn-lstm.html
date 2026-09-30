@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physics-Informed LSTM for Li-ion Battery SOH Estimation — Jennifer Durnall</title>
+  <meta name="description" content="Comparing a linear baseline, LSTM, GRU, and a physics-informed LSTM for Li-ion battery state-of-health estimation on NASA's battery aging dataset.">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <h1>Jennifer Durnall</h1>
+    <p>Electrical Engineering, UCF — notes on power electronics, embedded systems, and ML projects</p>
+    <nav class="site-nav">
+      <a href="../index.html">Posts</a>
+      <a href="https://github.com/jddurnn777">GitHub</a>
+      <a href="https://www.linkedin.com/in/jennifer-durnall">LinkedIn</a>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <div class="post-header">
+        <div class="post-date">September 2026</div>
+        <h1>Physics-Informed LSTM for Li-ion Battery State-of-Health Estimation</h1>
+        <div class="subtitle">Or: how a straight line beat three neural networks, and what I actually learned from that.</div>
+      </div>
+
+      <a class="repo-link" href="https://github.com/jddurnn777/battery-soh-lstm">View the code on GitHub →</a>
+
+      <h2>Why I built this</h2>
+      <p>
+        Batteries wear out. A phone battery that used to last all day eventually only makes it a
+        few hours. That decline is called <strong>state of health (SOH)</strong>, and being able to
+        estimate it automatically — instead of just watching a battery slowly die — is a real
+        engineering problem, especially for EVs and spacecraft, where you really want to know how
+        much life is left in a battery before it fails on you.
+      </p>
+      <p>
+        I built this project specifically to get hands-on with a modeling pattern used in
+        <a href="https://www.ece.ucf.edu/dpel/">UCF's Dey Power Electronics Lab (DPEL)</a>, ahead of
+        applying to work there. Dr. Dey's own published work uses a
+        <strong>physics-informed neural network (PINN)</strong> to estimate circuit parameters that
+        drift with age inside a power converter, in real time, from indirect measurements rather
+        than a direct reading. A battery's internal state is basically the same kind of problem —
+        a component whose properties change with age, that you have to infer rather than measure
+        directly. Same underlying idea, different object.
+      </p>
+      <p>
+        So the plan was: build four different ways to predict SOH, compare them fairly, and be
+        honest about what actually worked and what didn't — the same rigor I used comparing a CNN,
+        ResNet-18, and a Vision Transformer in an earlier CIFAR-10 project.
+      </p>
+
+      <h2>The data</h2>
+      <p>
+        I used NASA Ames' well-known
+        <a href="https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/">Li-ion Battery Aging dataset</a> —
+        four 18650 cells (B0005, B0006, B0007, B0018) that NASA ran through repeated
+        charge/discharge/impedance cycles at room temperature until each one lost roughly 25–30% of
+        its rated capacity. I pulled the raw <code>.mat</code> files from a
+        <a href="https://github.com/Maruthi-prasanth/Battery-Health-Prophecy">GitHub mirror</a> since
+        NASA's own hosting was intermittently down while I was working on this.
+      </p>
+      <p>
+        Each <code>.mat</code> file is a deeply nested MATLAB struct — one entry per cycle, tagged
+        <code>charge</code>, <code>discharge</code>, or <code>impedance</code>. I pulled every
+        discharge cycle's reported capacity (the value NASA itself computes from the discharge
+        current integral), plus summary stats of voltage, current, and temperature during that
+        discharge. That gave me a clean table of 636 discharge cycles across the four cells.
+      </p>
+
+      <div class="callout">
+        <strong>A design choice worth calling out:</strong> I split my train/test sets <em>by
+        battery</em>, not by cycle. I trained only on B0005, B0006, and B0007, and held out B0018
+        <em>completely</em> — the models never saw a single cycle from it during training. That's a
+        much stricter, more realistic test than a random split, because it checks whether a model
+        actually generalizes to a battery it's never encountered, not just to unseen cycles of
+        batteries it already partly knows.
+      </div>
+
+      <h2>The four approaches</h2>
+      <p>Using a sliding window of 5 past cycles to predict the next cycle's SOH:</p>
+      <ol>
+        <li><strong>Baseline</strong> — a plain linear trend fit to SOH vs. cycle number, extrapolated
+        one step forward. No learning at all, just "assume it keeps declining at roughly the same
+        rate it has been."</li>
+        <li><strong>Vanilla LSTM</strong> — a single recurrent layer (32 hidden units) followed by a
+        linear head.</li>
+        <li><strong>GRU</strong> — identical setup to the LSTM, just swapping the recurrent cell type,
+        to isolate whether the cell type itself matters.</li>
+        <li><strong>PINN-LSTM</strong> — architecturally identical to the vanilla LSTM. The only
+        difference is the loss function.</li>
+      </ol>
+
+      <h3>The physics-informed part</h3>
+      <p>
+        On top of ordinary mean-squared-error loss, the PINN-LSTM adds a penalty:
+      </p>
+      <pre><code>physics_loss = mean( relu(predicted_SOH - most_recent_observed_SOH)^2 )
+loss = data_loss + lambda * physics_loss</code></pre>
+      <p>
+        In plain terms: <em>a battery shouldn't spontaneously heal itself and gain capacity back</em>.
+        If the model predicts a SOH higher than what it just saw, that's penalized. It only fires on
+        increases — predicting further decline is never punished, since that's the expected case.
+        This mirrors the same data-loss-plus-physics-loss structure Dr. Dey's own paper uses, just
+        with a much simpler physics rule (mine's a monotonicity constraint; his is a real circuit
+        equation).
+      </p>
+
+      <h2>Results</h2>
+      <p>All numbers below are on B0018 — the battery none of the neural models ever saw.</p>
+
+      <table>
+        <thead>
+          <tr><th>Model</th><th>RMSE (%)</th><th>MAE (%)</th><th>R²</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Baseline (linear trend)</td><td>1.218</td><td>0.642</td><td>0.976</td></tr>
+          <tr><td>Vanilla LSTM</td><td>1.707</td><td>1.390</td><td>0.953</td></tr>
+          <tr><td>GRU</td><td>1.325</td><td>0.946</td><td>0.972</td></tr>
+          <tr><td><strong>PINN-LSTM (λ=1.0)</strong></td><td><strong>1.442</strong></td><td><strong>1.089</strong></td><td><strong>0.967</strong></td></tr>
+        </tbody>
+      </table>
+
+      <figure>
+        <img src="../assets/img/battery-soh/fig1_fade_curve.png" alt="Predicted vs actual capacity fade for battery B0018">
+        <figcaption>Predicted vs. actual capacity fade for the held-out battery. The sharp upward
+        spikes in the actual (black) curve are real measurements, not noise.</figcaption>
+      </figure>
+
+      <div class="callout">
+        <strong>The headline finding, and it's a little deflating:</strong> the dumb linear baseline
+        beat every neural model. With only 489 training sequences from 3 cells, there just wasn't
+        enough data for the LSTM or GRU to learn anything beyond "SOH decreases roughly linearly" —
+        which is exactly what the baseline already assumes directly. This is the same kind of
+        honest, not-flashy result I ran into with a frozen ResNet-18 barely beating a from-scratch
+        CNN in my CIFAR-10 project. Small data favors simple models.
+      </div>
+
+      <h3>So did the physics-informed part do anything?</h3>
+      <p>
+        This is the part I actually think is interesting. I swept the physics-loss weight (λ) from 0
+        up to 2.0 and tracked two things: raw accuracy (RMSE), and what fraction of predictions
+        physically <em>increase</em> SOH relative to the most recent observed cycle — a violation,
+        since real cells don't gain capacity under normal cycling.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>λ (physics weight)</th><th>RMSE (%)</th><th>Monotonicity violation rate</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>0.0 (plain LSTM)</td><td>1.677</td><td>61.4%</td></tr>
+          <tr><td>0.5</td><td>1.510</td><td>61.4%</td></tr>
+          <tr><td>1.0</td><td>1.429</td><td>59.8%</td></tr>
+          <tr><td><strong>2.0</strong></td><td><strong>1.352</strong></td><td><strong>55.9%</strong></td></tr>
+        </tbody>
+      </table>
+
+      <figure>
+        <img src="../assets/img/battery-soh/fig4_ablation.png" alt="Physics loss weight ablation showing RMSE and monotonicity violation rate">
+        <figcaption>Increasing λ improves both test RMSE and physical plausibility at the same time.</figcaption>
+      </figure>
+
+      <div class="finding">
+        <strong>Finding:</strong> cranking up λ didn't just make predictions more physically
+        plausible — it also made them <em>more accurate</em>. RMSE dropped from 1.68% to 1.35% as λ
+        went from 0 to 2.0, while the violation rate fell from 61.4% to 55.9%. My read on this: the
+        monotonicity penalty acts like a regularizer. It discourages the LSTM from overreacting to
+        short-term voltage/temperature noise between cycles, since it gets punished whenever a noisy
+        prediction happens to imply capacity recovery. That's a real, if modest, physics-informed
+        benefit — it just wasn't enough on its own to beat the simple baseline with this little
+        training data.
+      </div>
+
+      <h2>What the models all missed</h2>
+      <p>
+        Look back at the fade-curve figure above. Those sharp upward spikes in the real data are a
+        known electrochemical relaxation effect — batteries measurably recover a bit of capacity
+        after sitting through a rest period between cycling sessions. None of my four approaches
+        predict these, because my 5-cycle input window has no way of knowing a rest period is
+        coming. It's a genuine limitation, not a bug — the fix would be adding elapsed real time
+        between cycles as a feature, which NASA's raw timestamps would support directly. I haven't
+        done that yet.
+      </p>
+
+      <h2>What I'd do next</h2>
+      <ul>
+        <li>Add inter-cycle elapsed time as a feature, to see if it helps anticipate those
+        rest-period recovery spikes.</li>
+        <li>Replace my simplified monotonicity penalty with a real equivalent-circuit-model (ECM)
+        residual — closer to what Dr. Dey's paper actually does for the converter.</li>
+        <li>Run all four possible leave-one-battery-out combinations, not just B0018, since a single
+        held-out cell is a small and possibly non-representative test.</li>
+        <li>Build the hardware side — I've got an Arduino Uno + MSP430 cycling rig planned to collect
+        my own cell data and test whether a model trained on NASA's cells transfers to cells I've
+        cycled myself.</li>
+      </ul>
+
+      <h2>Code</h2>
+      <p>
+        Everything's on GitHub: the data extraction script, the model definitions, the training
+        loop with the physics loss, the plotting code, and the extracted feature CSV. Fixed random
+        seed throughout, so the numbers above should reproduce exactly.
+      </p>
+      <a class="repo-link" href="https://github.com/jddurnn777/battery-soh-lstm">github.com/jddurnn777/battery-soh-lstm →</a>
+
+      <h2>References</h2>
+      <ul>
+        <li>Saha, B., & Goebel, K. (2007). Battery data set. NASA Ames Prognostics Data Repository.</li>
+        <li>Raissi, M., Perdikaris, P., & Karniadakis, G. E. (2019). Physics-informed neural networks. <em>Journal of Computational Physics, 378</em>, 686–707.</li>
+        <li>Dey, S., & Mallik, A. (2025). Physics informed neural network—estimated circuit parameter adaptive modulation of DAB. <em>IEEE Transactions on Power Electronics, 40</em>(10), 14821–14841.</li>
+        <li>Olah, C. (2015). <a href="https://colah.github.io/posts/2015-08-Understanding-LSTMs/">Understanding LSTM Networks</a>.</li>
+      </ul>
+
+      <div class="post-footer">
+        Written by Jennifer Durnall. Questions or feedback? Reach me on
+        <a href="https://www.linkedin.com/in/jennifer-durnall">LinkedIn</a>.
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    &copy; 2026 Jennifer Durnall
+  </footer>
+
+</body>
+</html>
