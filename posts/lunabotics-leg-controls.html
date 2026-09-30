@@ -125,8 +125,8 @@
         <li><strong>Learning the CARA homing sequences:</strong> understanding how each joint finds
         its zero position when the robot powers on, and why that step matters so much for everything
         after it.</li>
-        <li><strong>Hands-on assembly:</strong> putting together both the mechanical and electrical
-        components of the leg.</li>
+        <li><strong>Hands-on work:</strong> disassembling the legs to calibrate the motors, then
+        reassembling both the mechanical and electrical components for testing.</li>
         <li><strong>Research:</strong> IMU sensors, PID control and whole-body control.</li>
       </ul>
       <p>
@@ -637,14 +637,58 @@ J_reflected = N² · J_motor</code></pre>
         <strong>terminated</strong> at its ends so signals don't reflect back and mess up the data.
       </p>
 
-      <h2>Hands-on assembly</h2>
+      <h2>Hands-on work: taking the legs apart to calibrate the motors</h2>
       <p>
-        A big part of my time has been physically putting the leg together, both the mechanical and
-        electrical side, and I think it's taught me as much as the research has. A schematic tells you
-        what connects to what, but it doesn't tell you how a cable routes through a joint that moves,
-        where connectors need strain relief so they don't work loose, or how much space there really
-        is around a motor once everything is mounted. Assembling the mechanical side also made the
-        controls concepts a lot more concrete for me. Once you've held the linkage in your hands, the
+        A big part of my time has been physically working on the leg, both the mechanical and
+        electrical side, and the biggest job so far was calibrating the motors. It sounds like a
+        software task, but it ended up being mostly hands-on.
+      </p>
+
+      <h3>Why the motors needed calibrating</h3>
+      <p>
+        Before an ODrive can run a brushless motor well, it has to learn about that specific motor
+        and encoder. Essentially the calibration measures the motor's electrical properties (like
+        its phase resistance and inductance) so the current loop can be tuned to it, and then it
+        figures out how the encoder's reading lines up with the rotor's magnets, so the controller
+        knows which phases to energize at every position. If that alignment is off, the motor runs
+        rough, loses torque or doesn't spin properly at all, and every loop above it (velocity,
+        position, and eventually homing and IK) is built on a bad foundation.
+      </p>
+      <p>
+        The catch is that during calibration the motor has to spin on its own, without a load on it.
+        If it's still attached to the leg, the linkage and whatever the leg is pressing against get in
+        the way, and the calibration either fails or saves the wrong values. So the motors had to come
+        out.
+      </p>
+
+      <h3>Taking apart a previous year's build</h3>
+      <p>
+        The legs we're working with came from a previous year's project, and there was very little
+        documentation on how they were put together. So before we could calibrate anything, we had to
+        disassemble the legs and figure out how to get the motors out of their mounts, basically
+        reverse-engineering the assembly as we went. My main concern going in was not damaging
+        anything we'd need later, since without documentation there wasn't a clear reference for how
+        it all went back together.
+      </p>
+
+      <h3>Calibrating and reassembling</h3>
+      <p>
+        With the motors out and free to spin, we ran the calibration on each one. Then we
+        reassembled the legs so they were ready for testing. Putting it back together is where the
+        mechanical side and the controls side really met for me: the encoder alignment we just saved
+        only means something if the motor goes back in the way the controller expects, and the hard
+        stops the homing sequence depends on only work if the linkage is assembled correctly.
+      </p>
+
+      <h3>What I took from it</h3>
+      <p>
+        Two things. First, this def showed me how much documentation matters on a team where people
+        graduate and projects get handed down. A lot of our time went into figuring out things
+        someone already knew, so writing down how our legs come apart and go back together is
+        something I want to make sure the next team has. Second, a schematic tells you what connects
+        to what, but it doesn't tell you how a cable routes through a joint that moves, where
+        connectors need strain relief so they don't work loose, or how much space there really is
+        around a motor once everything is mounted. Once you've held the linkage in your hands, the
         five-bar kinematics and the hard stops used for homing stop being abstract.
       </p>
 
