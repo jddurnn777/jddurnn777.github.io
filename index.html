@@ -4,29 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jennifer Durnall — Engineering Notes</title>
-  <meta name="description" content="Notes on power electronics, embedded systems, and machine learning projects by Jennifer Durnall, EE student at UCF.">
+  <meta name="description" content="Notes on power electronics, embedded systems, controls, and machine learning projects by Jennifer Durnall, EE student at UCF.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
   <header class="site-header">
-    <h1>Jennifer Durnall</h1>
-    <p>Electrical Engineering, UCF — notes on power electronics, embedded systems, and ML projects</p>
+    <a class="logo" href="index.html"><span class="mark"></span>jennifer.durnall</a>
     <nav class="site-nav">
-      <a href="index.html">Posts</a>
-      <a href="https://github.com/jddurnn777">GitHub</a>
-      <a href="https://www.linkedin.com/in/jennifer-durnall">LinkedIn</a>
+      <a href="#posts" aria-current="page">posts</a>
+      <a href="https://github.com/jddurnn777">github</a>
+      <a href="https://www.linkedin.com/in/jennifer-durnall">linkedin</a>
     </nav>
   </header>
 
   <main>
+    <section class="hero">
+      <div>
+        <h1>Jennifer is an <em>electrical engineering</em> student building <em>power, controls and ML</em> projects</h1>
+        <p>EE at UCF, Power &amp; Renewable Energy track. These are my notes on what I'm building, what worked, what didn't, and what I learned along the way.</p>
+        <a class="btn" href="#posts">read the posts ~&gt;</a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <span class="sq a"></span>
+        <span class="sq b"></span>
+        <span class="sq c"></span>
+        <span class="dots"></span>
+        <div class="status">Currently working on <b>NASA Lunabotics</b></div>
+      </div>
+    </section>
+
+    <h2 class="section-title" id="posts">posts</h2>
     <ul class="post-list">
 
       <li class="post-card">
-        <div class="post-date">September 2026 — in progress</div>
+        <div class="post-date">Sep 2026 – Present · in progress</div>
         <h2><a href="posts/urc-status-led.html">Choosing a Status LED for Our URC Rover</a></h2>
         <p>Comparing an addressable LED matrix, high-power LED strings, and vehicle lightheads against daylight-visibility targets — a live design decision, not a finished build.</p>
         <div>
@@ -36,17 +51,7 @@
       </li>
 
       <li class="post-card">
-        <div class="post-date">EEL4810, Team Project</div>
-        <h2><a href="posts/cifar10-cnn-resnet-vit.html">CNN vs. ResNet-18 vs. Vision Transformer on CIFAR-10</a></h2>
-        <p>A team comparison of a from-scratch CNN, frozen and fine-tuned ResNet-18 transfer learning, and a from-scratch Vision Transformer — and why fine-tuning beat everything else.</p>
-        <div>
-          <span class="tag">machine learning</span>
-          <span class="tag">PyTorch</span>
-        </div>
-      </li>
-
-      <li class="post-card">
-        <div class="post-date">September 2026</div>
+        <div class="post-date">Sep 2026 – Present</div>
         <h2><a href="posts/lunabotics-leg-controls.html">Closed-Loop Leg Controls for a NASA Lunabotics Quadruped</a></h2>
         <p>What NASA Lunabotics is, my role on the Controls team, and deep-dive notes on PID, quasi-direct drive, CARA-style homing, IMUs, and whole-body control for our walking excavator.</p>
         <div>
@@ -57,7 +62,7 @@
       </li>
 
       <li class="post-card">
-        <div class="post-date">September 2026</div>
+        <div class="post-date">Jul 2026 – Present</div>
         <h2><a href="posts/battery-soh-pinn-lstm.html">Physics-Informed LSTM for Li-ion Battery State-of-Health Estimation</a></h2>
         <p>Comparing a linear-trend baseline, LSTM, GRU, and a physics-informed LSTM on NASA's battery aging dataset — and why the simplest model won.</p>
         <div>
@@ -67,11 +72,51 @@
         </div>
       </li>
 
+      <li class="post-card">
+        <div class="post-date">Feb 2026 – May 2026 · EEL4810 team project</div>
+        <h2><a href="posts/cifar10-cnn-resnet-vit.html">CNN vs. ResNet-18 vs. Vision Transformer on CIFAR-10</a></h2>
+        <p>A team comparison of a from-scratch CNN, frozen and fine-tuned ResNet-18 transfer learning, and a from-scratch Vision Transformer — and why fine-tuning beat everything else.</p>
+        <div>
+          <span class="tag">machine learning</span>
+          <span class="tag">PyTorch</span>
+        </div>
+      </li>
+
+    </ul>
+
+    <h2 class="section-title" id="coming-soon">coming soon</h2>
+    <ul class="post-list">
+
+      <li class="post-card soon">
+        <div class="post-date">Sep 2026 – Present</div>
+        <h2>NASA L'SPACE Mission Concept Academy — M.A.K.O. Rover</h2>
+        <div><span class="tag">coming soon</span></div>
+      </li>
+
+      <li class="post-card soon">
+        <div class="post-date">Apr 2026 – Jun 2026</div>
+        <h2>Guitar Distortion Effect PCB</h2>
+        <div><span class="tag">coming soon</span></div>
+      </li>
+
+      <li class="post-card soon">
+        <div class="post-date">Feb 2026 – May 2026</div>
+        <h2>Solar Cell Fabrication</h2>
+        <div><span class="tag">coming soon</span></div>
+      </li>
+
+      <li class="post-card soon">
+        <div class="post-date">Oct 2025 – Dec 2025</div>
+        <h2>RF Independent Study with Ansys HFSS</h2>
+        <div><span class="tag">coming soon</span></div>
+      </li>
+
     </ul>
   </main>
 
   <footer class="site-footer">
-    &copy; 2026 Jennifer Durnall
+    <span>&copy; 2026 Jennifer Durnall</span>
+    <span><a href="https://github.com/jddurnn777">github</a> · <a href="https://www.linkedin.com/in/jennifer-durnall">linkedin</a></span>
   </footer>
 
 </body>
