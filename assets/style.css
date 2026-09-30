@@ -1,12 +1,30 @@
 :root {
-  --navy: #12233F;
-  --navy-light: #1d3a63;
-  --gold: #B58B2A;
-  --gray: #5a5a5a;
-  --bg: #fafafa;
-  --card-bg: #ffffff;
-  --border: #e3e3e3;
-  --code-bg: #f4f4f4;
+  /* Europa night sky — deep space purples */
+  --space-dark: #180f2e;
+  --space-mid: #2c1f52;
+  --space-edge: #3a2a63;
+
+  /* icy Europa surface highlight, used sparingly */
+  --ice: #aecbe0;
+  --ice-dim: #7f9fc0;
+
+  /* favorite-color purple, the primary accent everywhere */
+  --purple: #8c5fd6;
+  --purple-light: #b28ae8;
+  --purple-deep: #5f3aa8;
+
+  /* Shakupan-bakery warm cream, used for the "windows" of readable content */
+  --cream: #fbf4e8;
+  --cream-card: #fffaf1;
+  --cream-border: #e9dcc2;
+
+  /* pastry-glaze gold, small accents only */
+  --gold: #cc9a3f;
+  --gold-dim: #a9812f;
+
+  --gray: #6b6478;
+  --text: #241c38;
+  --code-bg: #f1eadd;
   --max-width: 760px;
 }
 
@@ -15,27 +33,44 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #1a1a1a;
-  background: var(--bg);
+  color: var(--text);
   line-height: 1.65;
+  background-color: var(--space-dark);
+  background-image:
+    radial-gradient(1px 1px at 8% 12%, rgba(255,255,255,0.55) 0, transparent 60%),
+    radial-gradient(1px 1px at 22% 38%, rgba(255,255,255,0.35) 0, transparent 60%),
+    radial-gradient(1.5px 1.5px at 41% 8%, rgba(255,255,255,0.5) 0, transparent 60%),
+    radial-gradient(1px 1px at 63% 22%, rgba(255,255,255,0.4) 0, transparent 60%),
+    radial-gradient(1px 1px at 78% 45%, rgba(255,255,255,0.3) 0, transparent 60%),
+    radial-gradient(1.5px 1.5px at 91% 15%, rgba(255,255,255,0.5) 0, transparent 60%),
+    radial-gradient(1px 1px at 15% 70%, rgba(174,203,224,0.45) 0, transparent 60%),
+    radial-gradient(1px 1px at 35% 85%, rgba(255,255,255,0.35) 0, transparent 60%),
+    radial-gradient(1.5px 1.5px at 55% 65%, rgba(255,255,255,0.45) 0, transparent 60%),
+    radial-gradient(1px 1px at 72% 92%, rgba(174,203,224,0.4) 0, transparent 60%),
+    radial-gradient(1px 1px at 88% 72%, rgba(255,255,255,0.3) 0, transparent 60%),
+    linear-gradient(180deg, var(--space-dark) 0%, var(--space-mid) 55%, var(--space-edge) 100%);
+  background-attachment: fixed, fixed, fixed, fixed, fixed, fixed, fixed, fixed, fixed, fixed, fixed, fixed;
 }
 
 .site-header {
-  background: var(--navy);
+  background: linear-gradient(160deg, var(--space-dark) 0%, var(--purple-deep) 120%);
   color: white;
   padding: 2.2rem 1.5rem 1.6rem;
   text-align: center;
+  border-bottom: 2px solid var(--gold);
+  box-shadow: 0 2px 24px rgba(140, 95, 214, 0.35);
 }
 
 .site-header h1 {
   margin: 0 0 0.3rem;
   font-size: 1.9rem;
   letter-spacing: 0.3px;
+  color: #fff;
 }
 
 .site-header p {
   margin: 0;
-  color: #cfd6e4;
+  color: var(--ice);
   font-size: 1rem;
 }
 
@@ -48,7 +83,7 @@ body {
 }
 
 .site-nav a {
-  color: #e8ecf5;
+  color: #ecdfff;
   text-decoration: none;
   border-bottom: 1px solid transparent;
   padding-bottom: 2px;
@@ -56,6 +91,7 @@ body {
 
 .site-nav a:hover {
   border-bottom-color: var(--gold);
+  color: #fff;
 }
 
 main {
@@ -64,7 +100,7 @@ main {
   padding: 2.2rem 1.4rem 4rem;
 }
 
-/* Post list on homepage */
+/* Post list on homepage — warm bakery "windows" glowing against the space background */
 .post-list {
   list-style: none;
   padding: 0;
@@ -72,23 +108,26 @@ main {
 }
 
 .post-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--cream-card);
+  border: 1px solid var(--cream-border);
+  border-radius: 10px;
   padding: 1.3rem 1.5rem;
   margin-bottom: 1.1rem;
-  transition: box-shadow 0.15s ease;
+  box-shadow: 0 4px 22px rgba(24, 15, 46, 0.35);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .post-card:hover {
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 28px rgba(140, 95, 214, 0.4);
+  transform: translateY(-1px);
 }
 
 .post-card .post-date {
   font-size: 0.82rem;
-  color: var(--gray);
+  color: var(--gold-dim);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 .post-card h2 {
@@ -97,32 +136,40 @@ main {
 }
 
 .post-card h2 a {
-  color: var(--navy);
+  color: var(--purple-deep);
   text-decoration: none;
 }
 
 .post-card h2 a:hover {
-  color: var(--gold);
+  color: var(--purple);
 }
 
 .post-card p {
   margin: 0;
-  color: #3a3a3a;
+  color: #3a3348;
   font-size: 0.96rem;
 }
 
 .tag {
   display: inline-block;
   font-size: 0.72rem;
-  background: #eef1f7;
-  color: var(--navy);
+  background: #efe4fb;
+  color: var(--purple-deep);
   border-radius: 4px;
   padding: 0.15rem 0.5rem;
   margin-right: 0.4rem;
   margin-top: 0.6rem;
 }
 
-/* Post page */
+/* Post page — the same warm "window" wraps the whole article */
+article {
+  background: var(--cream-card);
+  border: 1px solid var(--cream-border);
+  border-radius: 12px;
+  padding: 1.8rem 2rem 2.2rem;
+  box-shadow: 0 6px 30px rgba(24, 15, 46, 0.4);
+}
+
 .post-header {
   margin-bottom: 1.8rem;
   border-bottom: 2px solid var(--gold);
@@ -131,13 +178,14 @@ main {
 
 .post-header .post-date {
   font-size: 0.85rem;
-  color: var(--gray);
+  color: var(--gold-dim);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 .post-header h1 {
-  color: var(--navy);
+  color: var(--purple-deep);
   margin: 0.4rem 0 0.5rem;
   font-size: 1.9rem;
   line-height: 1.25;
@@ -150,22 +198,22 @@ main {
 }
 
 article h2 {
-  color: var(--navy);
+  color: var(--purple-deep);
   margin-top: 2.2rem;
   font-size: 1.35rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--cream-border);
   padding-bottom: 0.3rem;
 }
 
 article h3 {
-  color: var(--navy-light);
+  color: var(--purple);
   margin-top: 1.6rem;
   font-size: 1.1rem;
 }
 
 article p, article li {
   font-size: 1.02rem;
-  color: #222;
+  color: var(--text);
 }
 
 article code {
@@ -178,7 +226,7 @@ article code {
 
 article pre {
   background: var(--code-bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--cream-border);
   border-radius: 6px;
   padding: 1rem;
   overflow-x: auto;
@@ -198,7 +246,7 @@ figure {
 
 figure img {
   max-width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--cream-border);
   border-radius: 6px;
 }
 
@@ -217,19 +265,19 @@ table {
 }
 
 th, td {
-  border: 1px solid var(--border);
+  border: 1px solid var(--cream-border);
   padding: 0.5rem 0.7rem;
   text-align: left;
 }
 
 th {
-  background: #eef1f7;
-  color: var(--navy);
+  background: #efe4fb;
+  color: var(--purple-deep);
 }
 
 .callout {
-  background: #fff9ec;
-  border-left: 4px solid var(--gold);
+  background: #f7f0fb;
+  border-left: 4px solid var(--purple);
   padding: 0.9rem 1.1rem;
   margin: 1.4rem 0;
   border-radius: 0 6px 6px 0;
@@ -237,12 +285,12 @@ th {
 }
 
 .callout strong {
-  color: #8a5a00;
+  color: var(--purple-deep);
 }
 
 .finding {
-  background: #eef6ee;
-  border-left: 4px solid #4a8f4a;
+  background: #fdf6e8;
+  border-left: 4px solid var(--gold);
   padding: 0.9rem 1.1rem;
   margin: 1.4rem 0;
   border-radius: 0 6px 6px 0;
@@ -250,14 +298,14 @@ th {
 }
 
 .finding strong {
-  color: #2f6b2f;
+  color: var(--gold-dim);
 }
 
-a { color: var(--navy-light); }
+a { color: var(--purple-deep); }
 
 .repo-link {
   display: inline-block;
-  background: var(--navy);
+  background: linear-gradient(135deg, var(--purple-deep), var(--purple));
   color: white !important;
   padding: 0.55rem 1.1rem;
   border-radius: 6px;
@@ -267,26 +315,56 @@ a { color: var(--navy-light); }
 }
 
 .repo-link:hover {
-  background: var(--navy-light);
+  background: linear-gradient(135deg, var(--purple), var(--purple-light));
+}
+
+.paper-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  background: var(--cream);
+  border: 1px solid var(--cream-border);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin: 0.5rem 0;
+  text-decoration: none;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.paper-link:hover {
+  border-left-color: var(--purple);
+  background: #f7f0fb;
+}
+
+.paper-link .paper-cite {
+  color: var(--gray);
+  font-size: 0.86rem;
 }
 
 .post-footer {
   margin-top: 2.5rem;
   padding-top: 1.2rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--cream-border);
   font-size: 0.9rem;
   color: var(--gray);
 }
 
 .site-footer {
   text-align: center;
-  color: var(--gray);
+  color: var(--ice-dim);
   font-size: 0.85rem;
   padding: 2rem 0;
+}
+
+.site-footer a {
+  color: var(--ice);
 }
 
 @media (max-width: 600px) {
   .site-header h1 { font-size: 1.5rem; }
   .post-header h1 { font-size: 1.5rem; }
   .site-nav { gap: 0.9rem; font-size: 0.88rem; }
+  article { padding: 1.3rem 1.3rem 1.6rem; }
 }
